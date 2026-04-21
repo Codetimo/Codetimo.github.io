@@ -34,6 +34,7 @@ let board = [];
 let selectedCells = [];
 let dragAnchor = null;
 let isDragging = false;
+let activePointerId = null;
 let score = 0;
 let combo = 0;
 let secondsLeft = initialTimeLimit;
@@ -681,8 +682,12 @@ function stopTimer() {
   }
 }
 
-function onBoardMouseDown(event) {
-  if (gameState !== "playing" || event.button !== 0) {
+function onBoardPointerDown(event) {
+  if (gameState !== "playing" || !event.isPrimary) {
+    return;
+  }
+
+  if (event.pointerType === "mouse" && event.button !== 0) {
     return;
   }
 
@@ -697,23 +702,23 @@ function onBoardMouseDown(event) {
   }
 
   event.preventDefault();
+  activePointerId = event.pointerId;
   isDragging = true;
   dragAnchor = targetCell;
   selectedCells = [targetCell];
+  if (typeof boardElement.setPointerCapture === "function") {
+    boardElement.setPointerCapture(event.pointerId);
+  }
   setStatus(`当前选区和：${value}。按住左键继续拖动，松开后完成框选。`);
   renderBoard();
 }
 
-function onDocumentMouseMove(event) {
-  if (!isDragging || gameState !== "playing") {
+function onBoardPointerMove(event) {
+  if (!isDragging || gameState !== "playing" || event.pointerId !== activePointerId) {
     return;
   }
 
-  if ((event.buttons & 1) !== 1) {
-    finalizeSelection();
-    return;
-  }
-
+  event.preventDefault();
   const targetCell = getCellFromPoint(event.clientX, event.clientY);
   if (!targetCell) {
     return;
@@ -747,6 +752,7 @@ function finalizeSelection() {
   }
 
   isDragging = false;
+  activePointerId = null;
 
   if (selectedCells.length === 0) {
     clearSelection();
@@ -784,6 +790,40 @@ function finalizeSelection() {
     setStatus(`消除成功，选区总和为 10。当前连击 ${combo}。`);
   }
 
+  renderBoard();
+}
+
+function releaseBoardPointer(pointerId) {
+  if (typeof boardElement.releasePointerCapture !== "function") {
+    return;
+  }
+
+  try {
+    boardElement.releasePointerCapture(pointerId);
+  } catch (error) {
+    // Pointer capture may already be released on some browsers.
+  }
+}
+
+function onBoardPointerUp(event) {
+  if (event.pointerId !== activePointerId) {
+    return;
+  }
+
+  releaseBoardPointer(event.pointerId);
+  finalizeSelection();
+}
+
+function onBoardPointerCancel(event) {
+  if (event.pointerId !== activePointerId) {
+    return;
+  }
+
+  releaseBoardPointer(event.pointerId);
+  isDragging = false;
+  activePointerId = null;
+  clearSelection();
+  setStatus("Selection cancelled. Drag again to retry.");
   renderBoard();
 }
 
@@ -884,6 +924,7 @@ function getCellFromPoint(clientX, clientY) {
 function clearSelection() {
   selectedCells = [];
   dragAnchor = null;
+  activePointerId = null;
 }
 
 function countRemainingCells() {
@@ -1101,9 +1142,10 @@ function restartGame() {
   startTimer();
 }
 
-boardElement.addEventListener("mousedown", onBoardMouseDown);
-document.addEventListener("mousemove", onDocumentMouseMove);
-document.addEventListener("mouseup", finalizeSelection);
+boardElement.addEventListener("pointerdown", onBoardPointerDown);
+boardElement.addEventListener("pointermove", onBoardPointerMove);
+boardElement.addEventListener("pointerup", onBoardPointerUp);
+boardElement.addEventListener("pointercancel", onBoardPointerCancel);
 window.addEventListener("resize", resizeFireworksCanvas);
 restartButton.addEventListener("click", restartGame);
 hintButton.addEventListener("click", showHint);
