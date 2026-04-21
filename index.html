@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>开局托儿所 - 网页简易版</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">网页端简易复刻</p>
+        <h1>开局托儿所</h1>
+        <p class="subtitle">
+          按住鼠标左键拖动，拉出矩形选区。只要选区内所有数字总和等于
+          <strong>10</strong>，整块区域就会一起消失。你只有 <strong>2 分钟</strong>，
+          清空整盘就算通关。
+        </p>
+      </div>
+
+      <div class="stats-panel">
+        <div class="stat-box">
+          <span>得分</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="stat-box">
+          <span>连击</span>
+          <strong id="combo">0</strong>
+        </div>
+        <div class="stat-box">
+          <span>可消选区</span>
+          <strong id="moves">0</strong>
+        </div>
+        <div class="stat-box timer-box">
+          <span>倒计时</span>
+          <strong id="timer">02:00</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="playground">
+      <div class="board-frame">
+        <div class="board-head">
+          <div>
+            <h2>数字托儿班</h2>
+            <p id="status">按住左键拖动拉出矩形选区，松开左键后完成框选。</p>
+          </div>
+          <div class="actions">
+            <button id="hintButton" type="button" class="ghost-button">提示</button>
+            <button id="restartButton" type="button" class="primary-button">重新开局</button>
+          </div>
+        </div>
+
+        <div class="board-stage">
+          <div id="board" class="board" aria-label="游戏棋盘"></div>
+          <canvas id="fireworksCanvas" class="fireworks-layer" aria-hidden="true"></canvas>
+          <div id="resultOverlay" class="result-overlay" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <aside class="rules-card">
+        <h3>规则</h3>
+        <ul>
+          <li>按住左键拖动，框出的矩形区域内所有非空格子都会参与计数。</li>
+          <li>空白格不会参与求和，也不会阻止框选。</li>
+          <li>整个选区总和等于 10 时会消除并得分。</li>
+          <li>消除后格子会直接留空，不会补新数字。</li>
+          <li>倒计时结束或清空整盘后，本局立即结算。</li>
+        </ul>
+      </aside>
+    </section>
+  </main>
+
+  <template id="cellTemplate">
+    <button type="button" class="cell"></button>
+  </template>
+
+  <script src="./script.js"></script>
+</body>
+</html>
