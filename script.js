@@ -719,7 +719,7 @@ function onBoardPointerMove(event) {
   }
 
   event.preventDefault();
-  const targetCell = getCellFromPoint(event.clientX, event.clientY);
+  const targetCell = getClosestCellFromPoint(event.clientX, event.clientY);
   if (!targetCell) {
     return;
   }
@@ -827,6 +827,14 @@ function onBoardPointerCancel(event) {
   renderBoard();
 }
 
+function onBoardLostPointerCapture(event) {
+  if (event.pointerId !== activePointerId || !isDragging) {
+    return;
+  }
+
+  finalizeSelection();
+}
+
 function eliminateCells(cells) {
   cells.forEach(({ row, column }) => {
     board[row][column] = null;
@@ -919,6 +927,28 @@ function getCellFromPoint(clientX, clientY) {
   }
 
   return getCellFromEventTarget(element);
+}
+
+function getClosestCellFromPoint(clientX, clientY) {
+  const directCell = getCellFromPoint(clientX, clientY);
+  if (directCell) {
+    return directCell;
+  }
+
+  const rect = boardElement.getBoundingClientRect();
+  const insideBoard =
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom;
+
+  if (!insideBoard) {
+    const clampedX = Math.min(Math.max(clientX, rect.left + 1), rect.right - 1);
+    const clampedY = Math.min(Math.max(clientY, rect.top + 1), rect.bottom - 1);
+    return getCellFromPoint(clampedX, clampedY);
+  }
+
+  return null;
 }
 
 function clearSelection() {
@@ -1146,6 +1176,7 @@ boardElement.addEventListener("pointerdown", onBoardPointerDown);
 boardElement.addEventListener("pointermove", onBoardPointerMove);
 boardElement.addEventListener("pointerup", onBoardPointerUp);
 boardElement.addEventListener("pointercancel", onBoardPointerCancel);
+boardElement.addEventListener("lostpointercapture", onBoardLostPointerCapture);
 window.addEventListener("resize", resizeFireworksCanvas);
 restartButton.addEventListener("click", restartGame);
 hintButton.addEventListener("click", showHint);
