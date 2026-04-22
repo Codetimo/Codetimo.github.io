@@ -15,17 +15,107 @@ const rowCount = 10;
 const columnCount = 8;
 const minValue = 1;
 const maxValue = 9;
-const initialTimeLimit = 120;
-const generationAttempts = 140;
-const assignmentAttempts = 56;
-const blockShapes = [
-  { height: 1, width: 2, weight: 10 },
-  { height: 2, width: 1, weight: 10 },
-  { height: 1, width: 3, weight: 10 },
-  { height: 3, width: 1, weight: 10 },
-  { height: 2, width: 2, weight: 9 },
-  { height: 1, width: 4, weight: 5 },
-  { height: 4, width: 1, weight: 5 }
+const levelConfigs = [
+  {
+    id: 1,
+    title: "LEVEL 1",
+    timeLimit: 120,
+    generationAttempts: 140,
+    assignmentAttempts: 56,
+    hintEnabled: true,
+    stuckAllowance: 0,
+    targetCounts: [0, 11, 11, 10, 9, 8, 7, 7, 8, 9],
+    targetCountShuffleSteps: 4,
+    targetCountMin: 3,
+    targetCountMax: 14,
+    blockShapes: [
+      { height: 1, width: 2, weight: 10 },
+      { height: 2, width: 1, weight: 10 },
+      { height: 1, width: 3, weight: 10 },
+      { height: 3, width: 1, weight: 10 },
+      { height: 2, width: 2, weight: 9 },
+      { height: 1, width: 4, weight: 5 },
+      { height: 4, width: 1, weight: 5 }
+    ],
+    scoring: {
+      nineDigitOptionBonus: 18,
+      eightDigitOptionBonus: 6,
+      pairWithNineBonus: 2,
+      pairPenalty: -8,
+      tripleBonus: 3.8,
+      quadBonus: 8.5,
+      largeOptionBonus: 5.2,
+      minimumNineTarget: 2,
+      nineShortagePenalty: 90,
+      ninePresenceBonus: 52,
+      eightPresenceBonus: 10,
+      distributionPenalty: 2400,
+      blockCountBonus: 9,
+      extraSelectionsPenalty: 46,
+      adjacentPairPenalty: 110,
+      pairSelectionPenalty: 52,
+      largeSelectionBonus: 10,
+      routeDistanceBonus: 18,
+      spreadBonus: 20,
+      averageAreaPenalty: 2,
+      area2Bonus: 8,
+      area3Bonus: 14,
+      area4Bonus: 18,
+      largeAreaPenalty: 2,
+      layoutBlockBonus: 4,
+      shapeKindsBonus: 4
+    }
+  },
+  {
+    id: 2,
+    title: "LEVEL 2",
+    timeLimit: 95,
+    generationAttempts: 260,
+    assignmentAttempts: 96,
+    hintEnabled: false,
+    stuckAllowance: 6,
+    targetCounts: [0, 13, 12, 11, 10, 9, 8, 7, 6, 4],
+    targetCountShuffleSteps: 5,
+    targetCountMin: 2,
+    targetCountMax: 15,
+    blockShapes: [
+      { height: 1, width: 2, weight: 3 },
+      { height: 2, width: 1, weight: 3 },
+      { height: 1, width: 3, weight: 15 },
+      { height: 3, width: 1, weight: 15 },
+      { height: 2, width: 2, weight: 14 },
+      { height: 1, width: 4, weight: 10 },
+      { height: 4, width: 1, weight: 10 }
+    ],
+    scoring: {
+      nineDigitOptionBonus: 6,
+      eightDigitOptionBonus: 3,
+      pairWithNineBonus: -6,
+      pairPenalty: -22,
+      tripleBonus: 8,
+      quadBonus: 16,
+      largeOptionBonus: 10,
+      minimumNineTarget: 1,
+      nineShortagePenalty: 40,
+      ninePresenceBonus: 20,
+      eightPresenceBonus: 6,
+      distributionPenalty: 1800,
+      blockCountBonus: 4,
+      extraSelectionsPenalty: 90,
+      adjacentPairPenalty: 220,
+      pairSelectionPenalty: 120,
+      largeSelectionBonus: 22,
+      routeDistanceBonus: 24,
+      spreadBonus: 28,
+      averageAreaPenalty: -2,
+      area2Bonus: -20,
+      area3Bonus: 24,
+      area4Bonus: 30,
+      largeAreaPenalty: 0,
+      layoutBlockBonus: 1,
+      shapeKindsBonus: 6
+    }
+  }
 ];
 
 const blockValueOptionsCache = new Map();
@@ -37,22 +127,34 @@ let isDragging = false;
 let activePointerId = null;
 let score = 0;
 let combo = 0;
-let secondsLeft = initialTimeLimit;
+let currentLevelIndex = 0;
+let secondsLeft = levelConfigs[0].timeLimit;
 let timerId = null;
 let gameState = "idle";
 let fireworksParticles = [];
 let fireworksAnimationId = null;
 let fireworkTimers = [];
+let levelTransitionTimerId = null;
+let audioContext = null;
 
 function createStartingBoard() {
   board = createSolvableBoard();
 }
 
+function getCurrentLevelConfig() {
+  return levelConfigs[currentLevelIndex];
+}
+
+function isFinalLevel() {
+  return currentLevelIndex >= levelConfigs.length - 1;
+}
+
 function createSolvableBoard() {
+  const levelConfig = getCurrentLevelConfig();
   let bestCandidate = null;
   let bestScore = Number.NEGATIVE_INFINITY;
 
-  for (let attempt = 0; attempt < generationAttempts; attempt += 1) {
+  for (let attempt = 0; attempt < levelConfig.generationAttempts; attempt += 1) {
     const layout = generateBlockLayout();
     if (!layout) {
       continue;
@@ -84,13 +186,18 @@ function createSolvableBoard() {
 }
 
 function createTargetDigitCounts() {
-  const counts = [0, 11, 11, 10, 9, 8, 7, 7, 8, 9];
+  const levelConfig = getCurrentLevelConfig();
+  const counts = [...levelConfig.targetCounts];
 
-  for (let step = 0; step < 4; step += 1) {
+  for (let step = 0; step < levelConfig.targetCountShuffleSteps; step += 1) {
     const donor = 1 + Math.floor(Math.random() * maxValue);
     const receiver = 1 + Math.floor(Math.random() * maxValue);
 
-    if (donor === receiver || counts[donor] <= 3 || counts[receiver] >= 14) {
+    if (
+      donor === receiver ||
+      counts[donor] <= levelConfig.targetCountMin ||
+      counts[receiver] >= levelConfig.targetCountMax
+    ) {
       continue;
     }
 
@@ -142,7 +249,7 @@ function fillBlocksRecursively(occupied, blocks) {
 }
 
 function getOrderedShapes() {
-  return [...blockShapes].sort((left, right) => {
+  return [...getCurrentLevelConfig().blockShapes].sort((left, right) => {
     const leftScore = left.weight + Math.random() * 3;
     const rightScore = right.weight + Math.random() * 3;
     return rightScore - leftScore;
@@ -189,6 +296,7 @@ function findFirstEmptyCell(occupied) {
 }
 
 function assignBoardForLayout(layout, targetCounts) {
+  const levelConfig = getCurrentLevelConfig();
   const sortedLayout = [...layout].sort((left, right) => {
     const leftArea = left.height * left.width;
     const rightArea = right.height * right.width;
@@ -198,7 +306,7 @@ function assignBoardForLayout(layout, targetCounts) {
   let bestCandidate = null;
   let bestDeviation = Number.POSITIVE_INFINITY;
 
-  for (let attempt = 0; attempt < assignmentAttempts; attempt += 1) {
+  for (let attempt = 0; attempt < levelConfig.assignmentAttempts; attempt += 1) {
     const nextBoard = Array.from({ length: rowCount }, () =>
       Array.from({ length: columnCount }, () => null)
     );
@@ -344,6 +452,7 @@ function canUseOption(option, remainingCounts) {
 }
 
 function scoreValueOption(option, digitCounts, remainingCounts) {
+  const { scoring } = getCurrentLevelConfig();
   const targetCount = (rowCount * columnCount) / 9;
   let scoreValue = 0;
 
@@ -357,17 +466,17 @@ function scoreValueOption(option, digitCounts, remainingCounts) {
 
   scoreValue += new Set(option).size * 1.7;
   scoreValue += Math.max(...option) * 0.45;
-  scoreValue += option.filter((digit) => digit === 9).length * 18;
-  scoreValue += option.filter((digit) => digit === 8).length * 6;
+  scoreValue += option.filter((digit) => digit === 9).length * scoring.nineDigitOptionBonus;
+  scoreValue += option.filter((digit) => digit === 8).length * scoring.eightDigitOptionBonus;
 
   if (option.length === 2) {
-    scoreValue += option.includes(9) ? 2 : -8;
+    scoreValue += option.includes(9) ? scoring.pairWithNineBonus : scoring.pairPenalty;
   } else if (option.length === 3) {
-    scoreValue += 3.8;
+    scoreValue += scoring.tripleBonus;
   } else if (option.length === 4) {
-    scoreValue += 8.5;
+    scoreValue += scoring.quadBonus;
   } else if (option.length >= 5) {
-    scoreValue += 5.2;
+    scoreValue += scoring.largeOptionBonus;
   }
 
   return scoreValue;
@@ -442,41 +551,45 @@ function shuffle(items) {
 }
 
 function evaluateCandidateDifficulty(candidate) {
+  const { scoring } = getCurrentLevelConfig();
   const validSelections = findAllValidSelectionsForBoard(candidate.board);
   const layoutScore = evaluateLayoutDifficulty(candidate.blocks);
   const extraSelections = Math.max(0, validSelections.length - candidate.blocks.length);
   const adjacentPairCount = countAdjacentPairSelections(candidate.board);
   const pairSelectionCount = countSelectionsByCellCount(validSelections, 2);
   const largeSelectionCount = countSelectionsAtLeast(validSelections, 4);
-  const minimumNineTarget = 2;
-  const nineShortagePenalty = Math.max(0, minimumNineTarget - candidate.digitCounts[9]) * 90;
-  const highDigitPresenceBonus = candidate.digitCounts[9] * 52 + candidate.digitCounts[8] * 10;
+  const nineShortagePenalty =
+    Math.max(0, scoring.minimumNineTarget - candidate.digitCounts[9]) * scoring.nineShortagePenalty;
+  const highDigitPresenceBonus =
+    candidate.digitCounts[9] * scoring.ninePresenceBonus +
+    candidate.digitCounts[8] * scoring.eightPresenceBonus;
   const routeDistance = calculateRouteDistanceScore(candidate.blocks);
   const spreadScore = calculateSpreadScore(candidate.blocks);
   const averageArea = candidate.blocks.reduce(
     (sum, block) => sum + block.height * block.width,
     0
   ) / candidate.blocks.length;
-  const distributionPenalty = candidate.distributionDeviation * 2400;
+  const distributionPenalty = candidate.distributionDeviation * scoring.distributionPenalty;
 
   return (
     layoutScore +
-    candidate.blocks.length * 9 -
+    candidate.blocks.length * scoring.blockCountBonus -
     distributionPenalty -
-    extraSelections * 46 -
-    adjacentPairCount * 110 -
-    pairSelectionCount * 52 +
-    largeSelectionCount * 10 +
+    extraSelections * scoring.extraSelectionsPenalty -
+    adjacentPairCount * scoring.adjacentPairPenalty -
+    pairSelectionCount * scoring.pairSelectionPenalty +
+    largeSelectionCount * scoring.largeSelectionBonus +
     highDigitPresenceBonus +
     -nineShortagePenalty +
-    routeDistance * 18 +
-    spreadScore * 20 -
-    averageArea * 2 +
+    routeDistance * scoring.routeDistanceBonus +
+    spreadScore * scoring.spreadBonus -
+    averageArea * scoring.averageAreaPenalty +
     Math.random()
   );
 }
 
 function evaluateLayoutDifficulty(blocks) {
+  const { scoring } = getCurrentLevelConfig();
   let scoreValue = 0;
   const shapeKinds = new Set();
 
@@ -485,18 +598,18 @@ function evaluateLayoutDifficulty(blocks) {
     shapeKinds.add(`${block.height}x${block.width}`);
 
     if (area === 2) {
-      scoreValue += 8;
+      scoreValue += scoring.area2Bonus;
     } else if (area === 3) {
-      scoreValue += 14;
+      scoreValue += scoring.area3Bonus;
     } else if (area === 4) {
-      scoreValue += 18;
+      scoreValue += scoring.area4Bonus;
     } else {
-      scoreValue -= area * 2;
+      scoreValue -= area * scoring.largeAreaPenalty;
     }
   });
 
-  scoreValue += blocks.length * 4;
-  scoreValue += shapeKinds.size * 4;
+  scoreValue += blocks.length * scoring.layoutBlockBonus;
+  scoreValue += shapeKinds.size * scoring.shapeKindsBonus;
 
   return scoreValue;
 }
@@ -646,11 +759,14 @@ function renderBoard() {
 }
 
 function updateStats() {
+  const levelConfig = getCurrentLevelConfig();
   scoreElement.textContent = String(score);
   comboElement.textContent = String(combo);
   movesElement.textContent = String(findAllValidSelections().length);
   timerElement.textContent = formatTime(secondsLeft);
   timerBox.classList.toggle("warning", secondsLeft <= 30);
+  hintButton.hidden = !levelConfig.hintEnabled;
+  hintButton.disabled = gameState !== "playing" || !levelConfig.hintEnabled;
 }
 
 function formatTime(totalSeconds) {
@@ -682,6 +798,63 @@ function stopTimer() {
   }
 }
 
+function clearLevelTransitionTimer() {
+  if (levelTransitionTimerId !== null) {
+    window.clearTimeout(levelTransitionTimerId);
+    levelTransitionTimerId = null;
+  }
+}
+
+function getAudioContext() {
+  if (audioContext) {
+    return audioContext;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return null;
+  }
+
+  audioContext = new AudioContextClass();
+  return audioContext;
+}
+
+function unlockAudioPlayback() {
+  const context = getAudioContext();
+  if (context && context.state === "suspended") {
+    context.resume().catch(() => {});
+  }
+}
+
+function playEliminationSound(cellCount, comboCount) {
+  const context = getAudioContext();
+  if (!context || context.state !== "running") {
+    return;
+  }
+
+  const startTime = context.currentTime;
+  const envelope = context.createGain();
+  envelope.gain.setValueAtTime(0.0001, startTime);
+  envelope.gain.linearRampToValueAtTime(0.16, startTime + 0.015);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.28);
+  envelope.connect(context.destination);
+
+  const frequencies = [
+    440 + Math.min(140, cellCount * 18),
+    660 + Math.min(180, comboCount * 26)
+  ];
+
+  frequencies.forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    oscillator.type = index === 0 ? "triangle" : "sine";
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.08, startTime + 0.16);
+    oscillator.connect(envelope);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.3);
+  });
+}
+
 function onBoardPointerDown(event) {
   if (gameState !== "playing" || !event.isPrimary) {
     return;
@@ -702,6 +875,7 @@ function onBoardPointerDown(event) {
   }
 
   event.preventDefault();
+  unlockAudioPlayback();
   activePointerId = event.pointerId;
   isDragging = true;
   dragAnchor = targetCell;
@@ -774,16 +948,29 @@ function finalizeSelection() {
   eliminateCells(selectedCells);
   combo += 1;
   score += 10 + Math.max(0, eliminatedCount - 2) * 4 + (combo - 1) * 5;
+  playEliminationSound(eliminatedCount, combo);
   clearSelection();
 
   const remainingCells = countRemainingCells();
+  const remainingMoves = findAllValidSelections().length;
   if (remainingCells === 0) {
     renderBoard();
-    endGame("win");
+    completeCurrentLevel();
     return;
   }
 
-  const remainingMoves = findAllValidSelections().length;
+  if (shouldAllowResidualWin(remainingCells, remainingMoves)) {
+    renderBoard();
+    completeCurrentLevel();
+    return;
+  }
+
+  if (remainingMoves === 0) {
+    renderBoard();
+    endGame("stuck");
+    return;
+  }
+
   if (remainingMoves === 0) {
     setStatus("消除成功，但当前已经没有可继续凑 10 的矩形选区了。");
   } else {
@@ -971,8 +1158,68 @@ function countRemainingCells() {
   return count;
 }
 
+function shouldAllowResidualWin(remainingCells, remainingMoves) {
+  const levelConfig = getCurrentLevelConfig();
+  return (
+    isFinalLevel() &&
+    levelConfig.stuckAllowance > 0 &&
+    remainingMoves === 0 &&
+    remainingCells <= levelConfig.stuckAllowance
+  );
+}
+
+function startCurrentLevel(statusMessage) {
+  const levelConfig = getCurrentLevelConfig();
+
+  clearLevelTransitionTimer();
+  combo = 0;
+  secondsLeft = levelConfig.timeLimit;
+  gameState = "playing";
+  isDragging = false;
+  clearSelection();
+  hideOverlay();
+  cancelFireworks();
+  createStartingBoard();
+  setStatus(statusMessage);
+  renderBoard();
+  startTimer();
+}
+
+function completeCurrentLevel() {
+  if (isFinalLevel()) {
+    endGame("win");
+    return;
+  }
+
+  const currentTitle = getCurrentLevelConfig().title;
+  clearLevelTransitionTimer();
+  stopTimer();
+  gameState = "transition";
+  isDragging = false;
+  clearSelection();
+  renderBoard();
+  showOverlay(
+    '<div class="victory-stack"><div class="victory-title">' +
+      currentTitle +
+      ' CLEAR</div><div class="victory-subtitle">LEVEL 2 begins with no hints.</div></div>',
+    "success"
+  );
+  launchFireworks();
+
+  levelTransitionTimerId = window.setTimeout(() => {
+    levelTransitionTimerId = null;
+    currentLevelIndex += 1;
+    startCurrentLevel("LEVEL 2: no hints, fewer easy clears, and tiny leftovers still count.");
+  }, 1800);
+}
+
 function showHint() {
   if (gameState !== "playing") {
+    return;
+  }
+
+  if (!getCurrentLevelConfig().hintEnabled) {
+    setStatus("Hints are disabled in LEVEL 2.");
     return;
   }
 
@@ -1129,6 +1376,7 @@ function cancelFireworks() {
 }
 
 function endGame(reason) {
+  clearLevelTransitionTimer();
   gameState = reason;
   isDragging = false;
   clearSelection();
@@ -1155,11 +1403,23 @@ function endGame(reason) {
         "</div></div>"
     );
   }
+  if (reason === "stuck") {
+    setStatus("No more valid clears remain.");
+    showOverlay(
+      '<div class="victory-stack"><div class="victory-subtitle">Board Stuck</div><div class="victory-subtitle">Final score: ' +
+        score +
+        "</div></div>"
+    );
+  }
 }
 
 function restartGame() {
+  clearLevelTransitionTimer();
+  currentLevelIndex = 0;
   score = 0;
   combo = 0;
+  startCurrentLevel("LEVEL 1: drag a rectangle and make the sum equal 10.");
+  return;
   secondsLeft = initialTimeLimit;
   gameState = "playing";
   isDragging = false;
