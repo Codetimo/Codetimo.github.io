@@ -136,6 +136,7 @@ let fireworksAnimationId = null;
 let fireworkTimers = [];
 let levelTransitionTimerId = null;
 let audioContext = null;
+const eliminationSoundVolume = 0.2;
 
 function createStartingBoard() {
   board = createSolvableBoard();
@@ -828,31 +829,66 @@ function unlockAudioPlayback() {
 
 function playEliminationSound(cellCount, comboCount) {
   const context = getAudioContext();
-  if (!context || context.state !== "running") {
+  if (!context || context.state === "closed") {
+    return;
+  }
+
+  if (context.state === "suspended") {
+    context.resume().then(() => {
+      playEliminationSound(cellCount, comboCount);
+    }).catch(() => {});
     return;
   }
 
   const startTime = context.currentTime;
-  const envelope = context.createGain();
-  envelope.gain.setValueAtTime(0.0001, startTime);
-  envelope.gain.linearRampToValueAtTime(0.16, startTime + 0.015);
-  envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.28);
-  envelope.connect(context.destination);
+  const masterGain = context.createGain();
+  masterGain.gain.setValueAtTime(eliminationSoundVolume, startTime);
+  masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.34);
+  masterGain.connect(context.destination);
 
   const frequencies = [
-    440 + Math.min(140, cellCount * 18),
-    660 + Math.min(180, comboCount * 26)
+    360 + Math.min(160, cellCount * 22),
+    660 + Math.min(220, comboCount * 32)
   ];
 
   frequencies.forEach((frequency, index) => {
     const oscillator = context.createOscillator();
+    const envelope = context.createGain();
+    const delay = index * 0.055;
+
+    envelope.gain.setValueAtTime(0.0001, startTime + delay);
+    envelope.gain.linearRampToValueAtTime(index === 0 ? 0.9 : 0.65, startTime + delay + 0.012);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + delay + 0.2);
+    envelope.connect(masterGain);
+
     oscillator.type = index === 0 ? "triangle" : "sine";
     oscillator.frequency.setValueAtTime(frequency, startTime);
-    oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.08, startTime + 0.16);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * (index === 0 ? 1.75 : 1.14), startTime + delay + 0.16);
     oscillator.connect(envelope);
-    oscillator.start(startTime);
-    oscillator.stop(startTime + 0.3);
+    oscillator.start(startTime + delay);
+    oscillator.stop(startTime + delay + 0.22);
   });
+
+  const noiseBuffer = context.createBuffer(1, Math.floor(context.sampleRate * 0.08), context.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let index = 0; index < noiseData.length; index += 1) {
+    noiseData[index] = (Math.random() * 2 - 1) * (1 - index / noiseData.length);
+  }
+
+  const noise = context.createBufferSource();
+  const noiseFilter = context.createBiquadFilter();
+  const noiseEnvelope = context.createGain();
+  noise.buffer = noiseBuffer;
+  noiseFilter.type = "highpass";
+  noiseFilter.frequency.setValueAtTime(1800, startTime);
+  noiseEnvelope.gain.setValueAtTime(0.0001, startTime);
+  noiseEnvelope.gain.linearRampToValueAtTime(0.26, startTime + 0.01);
+  noiseEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.09);
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseEnvelope);
+  noiseEnvelope.connect(masterGain);
+  noise.start(startTime);
+  noise.stop(startTime + 0.1);
 }
 
 function onBoardPointerDown(event) {
