@@ -15,6 +15,15 @@ const rowCount = 10;
 const columnCount = 8;
 const minValue = 1;
 const maxValue = 9;
+const eliminationSoundConfig = {
+  baseVolume: 0.22,
+  transientGain: 0.25,
+  noiseHighpassHz: 3200,
+  noiseDuration: 0.04,
+  toneDuration: 0.105,
+  sparkleGain: 0.22,
+  maxIntensityBoost: 0.18
+};
 const levelConfigs = [
   {
     id: 1,
@@ -136,7 +145,8 @@ let fireworksAnimationId = null;
 let fireworkTimers = [];
 let levelTransitionTimerId = null;
 let audioContext = null;
-const eliminationSoundVolume = 0.2;
+let cachedTransientNoiseBuffer = null;
+let audioResumePromise = null;
 
 function createStartingBoard() {
   board = createSolvableBoard();
@@ -823,8 +833,46 @@ function getAudioContext() {
 function unlockAudioPlayback() {
   const context = getAudioContext();
   if (context && context.state === "suspended") {
-    context.resume().catch(() => {});
+    if (!audioResumePromise) {
+      audioResumePromise = context.resume().finally(() => {
+        audioResumePromise = null;
+      });
+    }
   }
+}
+
+function getTransientNoiseBuffer(context) {
+  const bufferLength = Math.floor(context.sampleRate * eliminationSoundConfig.noiseDuration);
+  if (
+    cachedTransientNoiseBuffer &&
+    cachedTransientNoiseBuffer.sampleRate === context.sampleRate &&
+    cachedTransientNoiseBuffer.length === bufferLength
+  ) {
+    return cachedTransientNoiseBuffer;
+  }
+
+  const noiseBuffer = context.createBuffer(1, bufferLength, context.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let index = 0; index < noiseData.length; index += 1) {
+    noiseData[index] = (Math.random() * 2 - 1) * (1 - index / noiseData.length);
+  }
+
+  cachedTransientNoiseBuffer = noiseBuffer;
+  return noiseBuffer;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getEliminationIntensity(cellCount, comboCount) {
+  const normalizedCellCount = clamp(cellCount / 10, 0, 1);
+  const normalizedComboCount = clamp(comboCount / 8, 0, 1);
+  return clamp(
+    (normalizedCellCount * 0.55) + (normalizedComboCount * 0.45),
+    0,
+    1
+  );
 }
 
 function playEliminationSound(cellCount, comboCount) {
@@ -834,61 +882,97 @@ function playEliminationSound(cellCount, comboCount) {
   }
 
   if (context.state === "suspended") {
-    context.resume().then(() => {
+    if (!audioResumePromise) {
+      audioResumePromise = context.resume().finally(() => {
+        audioResumePromise = null;
+      });
+    }
+
+    audioResumePromise.then(() => {
       playEliminationSound(cellCount, comboCount);
     }).catch(() => {});
     return;
   }
 
   const startTime = context.currentTime;
+  const intensity = getEliminationIntensity(cellCount, comboCount);
   const masterGain = context.createGain();
-  masterGain.gain.setValueAtTime(eliminationSoundVolume, startTime);
-  masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.34);
+  masterGain.gain.setValueAtTime(
+    clamp(
+      eliminationSoundConfig.baseVolume + intensity * eliminationSoundConfig.maxIntensityBoost,
+      0.0001,
+      1
+    ),
+    startTime
+  );
+  masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.26);
   masterGain.connect(context.destination);
 
   const frequencies = [
-    360 + Math.min(160, cellCount * 22),
-    660 + Math.min(220, comboCount * 32)
+    560 + Math.min(240, cellCount * 22),
+    1020 + Math.min(300, comboCount * 30)
   ];
 
   frequencies.forEach((frequency, index) => {
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
-    const delay = index * 0.055;
+    const toneFilter = context.createBiquadFilter();
+    const delay = index * 0.036;
+    const tonePeak = (index === 0 ? 0.72 : 0.54) + intensity * 0.12;
 
     envelope.gain.setValueAtTime(0.0001, startTime + delay);
-    envelope.gain.linearRampToValueAtTime(index === 0 ? 0.9 : 0.65, startTime + delay + 0.012);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + delay + 0.2);
-    envelope.connect(masterGain);
+    envelope.gain.linearRampToValueAtTime(tonePeak, startTime + delay + 0.005);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + delay + eliminationSoundConfig.toneDuration);
+
+    toneFilter.type = "highpass";
+    toneFilter.frequency.setValueAtTime(index === 0 ? 340 : 520, startTime);
+    envelope.connect(toneFilter);
+    toneFilter.connect(masterGain);
 
     oscillator.type = index === 0 ? "triangle" : "sine";
     oscillator.frequency.setValueAtTime(frequency, startTime);
-    oscillator.frequency.exponentialRampToValueAtTime(frequency * (index === 0 ? 1.75 : 1.14), startTime + delay + 0.16);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      frequency * (index === 0 ? 1.28 : 1.16),
+      startTime + delay + 0.082
+    );
     oscillator.connect(envelope);
     oscillator.start(startTime + delay);
-    oscillator.stop(startTime + delay + 0.22);
+    oscillator.stop(startTime + delay + eliminationSoundConfig.toneDuration + 0.018);
   });
 
-  const noiseBuffer = context.createBuffer(1, Math.floor(context.sampleRate * 0.08), context.sampleRate);
-  const noiseData = noiseBuffer.getChannelData(0);
-  for (let index = 0; index < noiseData.length; index += 1) {
-    noiseData[index] = (Math.random() * 2 - 1) * (1 - index / noiseData.length);
-  }
+  const sparkle = context.createOscillator();
+  const sparkleEnvelope = context.createGain();
+  sparkle.type = "triangle";
+  sparkle.frequency.setValueAtTime(1820 + Math.min(360, comboCount * 40), startTime);
+  sparkle.frequency.exponentialRampToValueAtTime(1460, startTime + 0.06);
+  sparkleEnvelope.gain.setValueAtTime(0.0001, startTime);
+  sparkleEnvelope.gain.linearRampToValueAtTime(
+    eliminationSoundConfig.sparkleGain + intensity * 0.06,
+    startTime + 0.004
+  );
+  sparkleEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.07);
+  sparkle.connect(sparkleEnvelope);
+  sparkleEnvelope.connect(masterGain);
+  sparkle.start(startTime);
+  sparkle.stop(startTime + 0.08);
 
   const noise = context.createBufferSource();
   const noiseFilter = context.createBiquadFilter();
   const noiseEnvelope = context.createGain();
-  noise.buffer = noiseBuffer;
+  noise.buffer = getTransientNoiseBuffer(context);
   noiseFilter.type = "highpass";
-  noiseFilter.frequency.setValueAtTime(1800, startTime);
+  noiseFilter.frequency.setValueAtTime(eliminationSoundConfig.noiseHighpassHz, startTime);
   noiseEnvelope.gain.setValueAtTime(0.0001, startTime);
-  noiseEnvelope.gain.linearRampToValueAtTime(0.26, startTime + 0.01);
-  noiseEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.09);
+  noiseEnvelope.gain.linearRampToValueAtTime(
+    eliminationSoundConfig.transientGain + intensity * 0.05,
+    startTime + 0.003
+  );
+  noiseEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + eliminationSoundConfig.noiseDuration);
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseEnvelope);
   noiseEnvelope.connect(masterGain);
   noise.start(startTime);
-  noise.stop(startTime + 0.1);
+  noise.stop(startTime + eliminationSoundConfig.noiseDuration + 0.01);
 }
 
 function onBoardPointerDown(event) {
