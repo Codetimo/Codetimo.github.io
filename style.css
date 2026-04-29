@@ -424,3 +424,7 @@ button {
     inset: 10px;
   }
 }
+
+#hintButton {
+  display: none;
+}
