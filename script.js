@@ -29,6 +29,7 @@ const levelConfigs = [
     id: 1,
     title: "LEVEL 1",
     timeLimit: 120,
+    cellSize: 56,
     generationAttempts: 140,
     assignmentAttempts: 56,
     hintEnabled: true,
@@ -78,11 +79,12 @@ const levelConfigs = [
   {
     id: 2,
     title: "LEVEL 2",
-    timeLimit: 95,
+    timeLimit: 80,
+    cellSize: 68,
     generationAttempts: 260,
     assignmentAttempts: 96,
     hintEnabled: false,
-    stuckAllowance: 6,
+    stuckAllowance: 2,
     targetCounts: [0, 13, 12, 11, 10, 9, 8, 7, 6, 4],
     targetCountShuffleSteps: 5,
     targetCountMin: 2,
@@ -147,6 +149,7 @@ let levelTransitionTimerId = null;
 let audioContext = null;
 let cachedTransientNoiseBuffer = null;
 let audioResumePromise = null;
+let bgmNodes = null;
 
 function createStartingBoard() {
   board = createSolvableBoard();
@@ -726,7 +729,9 @@ function calculateSpreadScore(blocks) {
 
 function renderBoard() {
   boardElement.innerHTML = "";
-  boardElement.style.gridTemplateColumns = `repeat(${columnCount}, minmax(0, 1fr))`;
+  const levelConfig = getCurrentLevelConfig();
+  boardElement.style.gridTemplateColumns = `repeat(${columnCount}, var(--cell-size))`;
+  boardElement.style.setProperty("--cell-size", `${levelConfig.cellSize}px`);
 
   board.forEach((row, rowIndex) => {
     row.forEach((value, columnIndex) => {
@@ -839,6 +844,50 @@ function unlockAudioPlayback() {
       });
     }
   }
+  startBackgroundMusic();
+}
+
+function startBackgroundMusic() {
+  if (bgmNodes) {
+    return;
+  }
+
+  const context = getAudioContext();
+  if (!context || context.state === "closed") {
+    return;
+  }
+
+  const masterGain = context.createGain();
+  masterGain.gain.value = 0.08;
+  masterGain.connect(context.destination);
+
+  const oscillators = [196, 246.94, 329.63].map((frequency, index) => {
+    const oscillator = context.createOscillator();
+    const gainNode = context.createGain();
+    oscillator.type = index === 0 ? "sine" : "triangle";
+    oscillator.frequency.value = frequency;
+    gainNode.gain.value = index === 0 ? 0.4 : 0.26;
+    oscillator.connect(gainNode);
+    gainNode.connect(masterGain);
+    oscillator.start();
+    return oscillator;
+  });
+
+  const lfo = context.createOscillator();
+  const lfoGain = context.createGain();
+  lfo.type = "sine";
+  lfo.frequency.value = 0.12;
+  lfoGain.gain.value = 0.028;
+  lfo.connect(lfoGain);
+  lfoGain.connect(masterGain.gain);
+  lfo.start();
+
+  bgmNodes = {
+    masterGain,
+    oscillators,
+    lfo,
+    lfoGain
+  };
 }
 
 function getTransientNoiseBuffer(context) {
