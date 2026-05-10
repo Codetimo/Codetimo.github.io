@@ -11,8 +11,6 @@ const fireworksCanvas = document.querySelector("#fireworksCanvas");
 const resultOverlay = document.querySelector("#resultOverlay");
 const timerBox = timerElement.closest(".timer-box");
 
-const rowCount = 10;
-const columnCount = 8;
 const minValue = 1;
 const maxValue = 9;
 const eliminationSoundConfig = {
@@ -28,15 +26,17 @@ const levelConfigs = [
   {
     id: 1,
     title: "LEVEL 1",
+    rows: 5,
+    columns: 5,
     timeLimit: 120,
     generationAttempts: 140,
     assignmentAttempts: 56,
     hintEnabled: true,
     stuckAllowance: 0,
-    targetCounts: [0, 11, 11, 10, 9, 8, 7, 7, 8, 9],
+    targetCounts: [0, 3, 3, 3, 3, 3, 3, 2, 2, 3],
     targetCountShuffleSteps: 4,
-    targetCountMin: 3,
-    targetCountMax: 14,
+    targetCountMin: 1,
+    targetCountMax: 5,
     blockShapes: [
       { height: 1, width: 2, weight: 10 },
       { height: 2, width: 1, weight: 10 },
@@ -78,11 +78,13 @@ const levelConfigs = [
   {
     id: 2,
     title: "LEVEL 2",
+    rows: 10,
+    columns: 8,
     timeLimit: 95,
     generationAttempts: 260,
     assignmentAttempts: 96,
     hintEnabled: false,
-    stuckAllowance: 6,
+    stuckAllowance: 80,
     targetCounts: [0, 13, 12, 11, 10, 9, 8, 7, 6, 4],
     targetCountShuffleSteps: 5,
     targetCountMin: 2,
@@ -156,6 +158,14 @@ function getCurrentLevelConfig() {
   return levelConfigs[currentLevelIndex];
 }
 
+function getRowCount() {
+  return getCurrentLevelConfig().rows;
+}
+
+function getColumnCount() {
+  return getCurrentLevelConfig().columns;
+}
+
 function isFinalLevel() {
   return currentLevelIndex >= levelConfigs.length - 1;
 }
@@ -220,8 +230,8 @@ function createTargetDigitCounts() {
 }
 
 function generateBlockLayout() {
-  const occupied = Array.from({ length: rowCount }, () =>
-    Array.from({ length: columnCount }, () => false)
+  const occupied = Array.from({ length: getRowCount() }, () =>
+    Array.from({ length: getColumnCount() }, () => false)
   );
 
   return fillBlocksRecursively(occupied, []);
@@ -271,7 +281,7 @@ function canPlaceBlock(occupied, startRow, startColumn, shape) {
   const endRow = startRow + shape.height;
   const endColumn = startColumn + shape.width;
 
-  if (endRow > rowCount || endColumn > columnCount) {
+  if (endRow > getRowCount() || endColumn > getColumnCount()) {
     return false;
   }
 
@@ -295,8 +305,8 @@ function markBlock(occupied, startRow, startColumn, shape, value) {
 }
 
 function findFirstEmptyCell(occupied) {
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 1) {
+  for (let row = 0; row < getRowCount(); row += 1) {
+    for (let column = 0; column < getColumnCount(); column += 1) {
       if (!occupied[row][column]) {
         return { row, column };
       }
@@ -318,8 +328,8 @@ function assignBoardForLayout(layout, targetCounts) {
   let bestDeviation = Number.POSITIVE_INFINITY;
 
   for (let attempt = 0; attempt < levelConfig.assignmentAttempts; attempt += 1) {
-    const nextBoard = Array.from({ length: rowCount }, () =>
-      Array.from({ length: columnCount }, () => null)
+    const nextBoard = Array.from({ length: getRowCount() }, () =>
+      Array.from({ length: getColumnCount() }, () => null)
     );
     const digitCounts = Array.from({ length: maxValue + 1 }, () => 0);
     const remainingCounts = [...targetCounts];
@@ -464,7 +474,7 @@ function canUseOption(option, remainingCounts) {
 
 function scoreValueOption(option, digitCounts, remainingCounts) {
   const { scoring } = getCurrentLevelConfig();
-  const targetCount = (rowCount * columnCount) / 9;
+  const targetCount = (getRowCount() * getColumnCount()) / 9;
   let scoreValue = 0;
 
   option.forEach((digit) => {
@@ -506,8 +516,8 @@ function measureDistributionDeviation(remainingCounts) {
 function createFallbackLayout() {
   const layout = [];
 
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 2) {
+  for (let row = 0; row < getRowCount(); row += 1) {
+    for (let column = 0; column < getColumnCount(); column += 2) {
       layout.push({
         row,
         column,
@@ -521,8 +531,8 @@ function createFallbackLayout() {
 }
 
 function createGuaranteedFallbackBoard() {
-  const boardState = Array.from({ length: rowCount }, () =>
-    Array.from({ length: columnCount }, () => null)
+  const boardState = Array.from({ length: getRowCount() }, () =>
+    Array.from({ length: getColumnCount() }, () => null)
   );
   const pairOptions = shuffle([
     [1, 9],
@@ -534,8 +544,8 @@ function createGuaranteedFallbackBoard() {
 
   let pairIndex = 0;
 
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 2) {
+  for (let row = 0; row < getRowCount(); row += 1) {
+    for (let column = 0; column < getColumnCount(); column += 2) {
       const pair = [...pairOptions[pairIndex % pairOptions.length]];
       if (Math.random() < 0.5) {
         pair.reverse();
@@ -628,20 +638,20 @@ function evaluateLayoutDifficulty(blocks) {
 function countAdjacentPairSelections(boardState) {
   let count = 0;
 
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 1) {
+  for (let row = 0; row < getRowCount(); row += 1) {
+    for (let column = 0; column < getColumnCount(); column += 1) {
       const value = boardState[row][column];
       if (value === null) {
         continue;
       }
 
-      if (column + 1 < columnCount && boardState[row][column + 1] !== null) {
+      if (column + 1 < getColumnCount() && boardState[row][column + 1] !== null) {
         if (value + boardState[row][column + 1] === 10) {
           count += 1;
         }
       }
 
-      if (row + 1 < rowCount && boardState[row + 1][column] !== null) {
+      if (row + 1 < getRowCount() && boardState[row + 1][column] !== null) {
         if (value + boardState[row + 1][column] === 10) {
           count += 1;
         }
@@ -726,7 +736,7 @@ function calculateSpreadScore(blocks) {
 
 function renderBoard() {
   boardElement.innerHTML = "";
-  boardElement.style.gridTemplateColumns = `repeat(${columnCount}, minmax(0, 1fr))`;
+  boardElement.style.gridTemplateColumns = `repeat(${getColumnCount()}, minmax(0, 1fr))`;
 
   board.forEach((row, rowIndex) => {
     row.forEach((value, columnIndex) => {
@@ -1156,10 +1166,10 @@ function findAllValidSelectionsForBoard(boardState) {
   const results = [];
   const uniqueAreas = new Set();
 
-  for (let startRow = 0; startRow < rowCount; startRow += 1) {
-    for (let startColumn = 0; startColumn < columnCount; startColumn += 1) {
-      for (let endRow = startRow; endRow < rowCount; endRow += 1) {
-        for (let endColumn = startColumn; endColumn < columnCount; endColumn += 1) {
+  for (let startRow = 0; startRow < getRowCount(); startRow += 1) {
+    for (let startColumn = 0; startColumn < getColumnCount(); startColumn += 1) {
+      for (let endRow = startRow; endRow < getRowCount(); endRow += 1) {
+        for (let endColumn = startColumn; endColumn < getColumnCount(); endColumn += 1) {
           const cells = getCellsInRectangle(
             { row: startRow, column: startColumn },
             { row: endRow, column: endColumn },
@@ -1267,8 +1277,8 @@ function clearSelection() {
 function countRemainingCells() {
   let count = 0;
 
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 1) {
+  for (let row = 0; row < getRowCount(); row += 1) {
+    for (let column = 0; column < getColumnCount(); column += 1) {
       if (board[row][column] !== null) {
         count += 1;
       }
