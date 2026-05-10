@@ -183,8 +183,11 @@ button {
 }
 
 .board {
+  --cell-size: 64px;
   display: grid;
   gap: 8px;
+  width: max-content;
+  margin: 0 auto;
   padding: 16px;
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(255, 247, 232, 0.96), rgba(255, 237, 218, 0.94));
@@ -193,6 +196,7 @@ button {
 }
 
 .cell {
+  width: var(--cell-size);
   aspect-ratio: 1 / 1;
   border: 0;
   border-radius: 18px;
