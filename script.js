@@ -10,6 +10,7 @@ const cellTemplate = document.querySelector("#cellTemplate");
 const fireworksCanvas = document.querySelector("#fireworksCanvas");
 const resultOverlay = document.querySelector("#resultOverlay");
 const timerBox = timerElement.closest(".timer-box");
+const timerProgressBar = document.querySelector("#timerProgressBar");
 
 const minValue = 1;
 const maxValue = 9;
@@ -78,13 +79,13 @@ const levelConfigs = [
   {
     id: 2,
     title: "LEVEL 2",
-    rows: 10,
-    columns: 8,
-    timeLimit: 95,
+    rows: 12,
+    columns: 10,
+    timeLimit: 35,
     generationAttempts: 260,
     assignmentAttempts: 96,
     hintEnabled: false,
-    stuckAllowance: 80,
+    stuckAllowance: 0,
     targetCounts: [0, 13, 12, 11, 10, 9, 8, 7, 6, 4],
     targetCountShuffleSteps: 5,
     targetCountMin: 2,
@@ -149,6 +150,7 @@ let levelTransitionTimerId = null;
 let audioContext = null;
 let cachedTransientNoiseBuffer = null;
 let audioResumePromise = null;
+let backgroundMusicNodes = null;
 
 function createStartingBoard() {
   board = createSolvableBoard();
@@ -786,6 +788,10 @@ function updateStats() {
   movesElement.textContent = String(findAllValidSelections().length);
   timerElement.textContent = formatTime(secondsLeft);
   timerBox.classList.toggle("warning", secondsLeft <= 30);
+  const ratio = levelConfig.timeLimit > 0 ? clamp(secondsLeft / levelConfig.timeLimit, 0, 1) : 0;
+  if (timerProgressBar) {
+    timerProgressBar.style.transform = `scaleX(${ratio})`;
+  }
   hintButton.hidden = !levelConfig.hintEnabled;
   hintButton.disabled = gameState !== "playing" || !levelConfig.hintEnabled;
 }
@@ -847,6 +853,9 @@ function unlockAudioPlayback() {
       audioResumePromise = context.resume().finally(() => {
         audioResumePromise = null;
       });
+      audioResumePromise.then(() => {
+        startBackgroundMusic();
+      }).catch(() => {});
     }
   }
 }
@@ -896,6 +905,9 @@ function playEliminationSound(cellCount, comboCount) {
       audioResumePromise = context.resume().finally(() => {
         audioResumePromise = null;
       });
+      audioResumePromise.then(() => {
+        startBackgroundMusic();
+      }).catch(() => {});
     }
 
     audioResumePromise.then(() => {
@@ -983,6 +995,65 @@ function playEliminationSound(cellCount, comboCount) {
   noiseEnvelope.connect(masterGain);
   noise.start(startTime);
   noise.stop(startTime + eliminationSoundConfig.noiseDuration + 0.01);
+}
+
+
+function startBackgroundMusic() {
+  const context = getAudioContext();
+  if (!context || context.state === "closed" || backgroundMusicNodes) {
+    return;
+  }
+
+  const master = context.createGain();
+  master.gain.value = 0.0001;
+  master.connect(context.destination);
+
+  const pulse = context.createOscillator();
+  const pulseGain = context.createGain();
+  pulse.type = "sawtooth";
+  pulse.frequency.value = 88;
+  pulseGain.gain.value = 0.05;
+  pulse.connect(pulseGain);
+  pulseGain.connect(master);
+
+  const tension = context.createOscillator();
+  const tensionGain = context.createGain();
+  tension.type = "triangle";
+  tension.frequency.value = 176;
+  tensionGain.gain.value = 0.03;
+  tension.connect(tensionGain);
+  tensionGain.connect(master);
+
+  const lfo = context.createOscillator();
+  const lfoGain = context.createGain();
+  lfo.type = "sine";
+  lfo.frequency.value = 2.8;
+  lfoGain.gain.value = 22;
+  lfo.connect(lfoGain);
+  lfoGain.connect(tension.frequency);
+
+  const now = context.currentTime;
+  pulse.start(now);
+  tension.start(now);
+  lfo.start(now);
+  master.gain.exponentialRampToValueAtTime(0.11, now + 1.3);
+
+  backgroundMusicNodes = { master, pulse, pulseGain, tension, tensionGain, lfo, lfoGain };
+}
+
+function stopBackgroundMusic() {
+  if (!audioContext || !backgroundMusicNodes) {
+    return;
+  }
+  const { master, pulse, tension, lfo } = backgroundMusicNodes;
+  const endAt = audioContext.currentTime + 0.28;
+  master.gain.cancelScheduledValues(audioContext.currentTime);
+  master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), audioContext.currentTime);
+  master.gain.exponentialRampToValueAtTime(0.0001, endAt);
+  [pulse, tension, lfo].forEach((node) => {
+    try { node.stop(endAt + 0.02); } catch (error) {}
+  });
+  backgroundMusicNodes = null;
 }
 
 function onBoardPointerDown(event) {
@@ -1313,6 +1384,7 @@ function startCurrentLevel(statusMessage) {
   setStatus(statusMessage);
   renderBoard();
   startTimer();
+  startBackgroundMusic();
 }
 
 function completeCurrentLevel() {
@@ -1339,7 +1411,7 @@ function completeCurrentLevel() {
   levelTransitionTimerId = window.setTimeout(() => {
     levelTransitionTimerId = null;
     currentLevelIndex += 1;
-    startCurrentLevel("LEVEL 2: no hints, fewer easy clears, and tiny leftovers still count.");
+    startCurrentLevel("LEVEL 2：极限难度，时间极短且几乎不给容错。");
   }, 1800);
 }
 
@@ -1511,6 +1583,7 @@ function endGame(reason) {
   isDragging = false;
   clearSelection();
   stopTimer();
+  stopBackgroundMusic();
   renderBoard();
 
   if (reason === "win") {
@@ -1534,9 +1607,9 @@ function endGame(reason) {
     );
   }
   if (reason === "stuck") {
-    setStatus("No more valid clears remain.");
+    setStatus("已经没有可消除的矩形选区了。");
     showOverlay(
-      '<div class="victory-stack"><div class="victory-subtitle">Board Stuck</div><div class="victory-subtitle">Final score: ' +
+      '<div class="victory-stack"><div class="victory-subtitle">无路可走</div><div class="victory-subtitle">最终得分：' +
         score +
         "</div></div>"
     );
@@ -1548,7 +1621,7 @@ function restartGame() {
   currentLevelIndex = 0;
   score = 0;
   combo = 0;
-  startCurrentLevel("LEVEL 1: drag a rectangle and make the sum equal 10.");
+  startCurrentLevel("LEVEL 1：按住拖动框选，凑满 10 消除。");
   return;
   secondsLeft = initialTimeLimit;
   gameState = "playing";
@@ -1560,6 +1633,7 @@ function restartGame() {
   setStatus("新的一局开始了，按住左键拖动拉出矩形选区，把总和凑到 10。");
   renderBoard();
   startTimer();
+  startBackgroundMusic();
 }
 
 boardElement.addEventListener("pointerdown", onBoardPointerDown);
