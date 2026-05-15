@@ -153,7 +153,13 @@ let audioResumePromise = null;
 let backgroundMusicNodes = null;
 
 function createStartingBoard() {
-  board = createSolvableBoard();
+  board = createRandomBoard();
+}
+
+function createRandomBoard() {
+  return Array.from({ length: getRowCount() }, () =>
+    Array.from({ length: getColumnCount() }, () => minValue + Math.floor(Math.random() * maxValue))
+  );
 }
 
 function getCurrentLevelConfig() {
@@ -1084,7 +1090,7 @@ function onBoardPointerDown(event) {
   if (typeof boardElement.setPointerCapture === "function") {
     boardElement.setPointerCapture(event.pointerId);
   }
-  setStatus(`当前选区和：${value}。按住左键继续拖动，松开后完成框选。`);
+  setStatus(`已选中数字 ${value}。按住左键继续拖动，松开后完成框选。`);
   renderBoard();
 }
 
@@ -1109,14 +1115,7 @@ function updateSelection(row, column) {
 
   selectedCells = getCellsInRectangle(dragAnchor, { row, column });
   const total = getSelectionSum(selectedCells);
-
-  if (total > 10) {
-    setStatus(`当前选区和：${total}，已经超过 10，松开后本次选择会取消。`);
-  } else if (total === 10) {
-    setStatus(`当前选区和：${total}。松开左键即可消除。`);
-  } else {
-    setStatus(`当前选区和：${total}。按住左键继续拖动。`);
-  }
+  setStatus(`当前选区和：${total}。松开左键即可消除。`);
 
   renderBoard();
 }
@@ -1132,15 +1131,6 @@ function finalizeSelection() {
   if (selectedCells.length === 0) {
     clearSelection();
     setStatus("本次没有选中任何数字。");
-    renderBoard();
-    return;
-  }
-
-  const total = getSelectionSum(selectedCells);
-  if (total !== 10) {
-    combo = 0;
-    clearSelection();
-    setStatus(`当前选区和为 ${total}，不等于 10，本次不消除。`);
     renderBoard();
     return;
   }
@@ -1173,9 +1163,9 @@ function finalizeSelection() {
   }
 
   if (remainingMoves === 0) {
-    setStatus("消除成功，但当前已经没有可继续凑 10 的矩形选区了。");
+    setStatus("消除成功，但当前已经没有可继续消除的矩形选区了。");
   } else {
-    setStatus(`消除成功，选区总和为 10。当前连击 ${combo}。`);
+    setStatus(`消除成功。当前连击 ${combo}。`);
   }
 
   renderBoard();
@@ -1247,7 +1237,7 @@ function findAllValidSelectionsForBoard(boardState) {
             boardState
           );
 
-          if (cells.length === 0 || getSelectionSum(cells, boardState) !== 10) {
+          if (cells.length === 0) {
             continue;
           }
 
@@ -1621,7 +1611,7 @@ function restartGame() {
   currentLevelIndex = 0;
   score = 0;
   combo = 0;
-  startCurrentLevel("LEVEL 1：按住拖动框选，凑满 10 消除。");
+  startCurrentLevel("LEVEL 1：按住拖动框选，松开即可消除。");
   return;
   secondsLeft = initialTimeLimit;
   gameState = "playing";
@@ -1630,7 +1620,7 @@ function restartGame() {
   hideOverlay();
   cancelFireworks();
   createStartingBoard();
-  setStatus("新的一局开始了，按住左键拖动拉出矩形选区，把总和凑到 10。");
+  setStatus("新的一局开始了，按住左键拖动拉出矩形选区，松开即可消除。");
   renderBoard();
   startTimer();
   startBackgroundMusic();
