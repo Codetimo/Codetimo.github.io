@@ -16,12 +16,10 @@ const minValue = 1;
 const maxValue = 9;
 const eliminationSoundConfig = {
   baseVolume: 0.22,
-  transientGain: 0.25,
-  noiseHighpassHz: 3200,
-  noiseDuration: 0.04,
-  toneDuration: 0.105,
-  sparkleGain: 0.22,
-  maxIntensityBoost: 0.18
+  sparkleGain: 0.2,
+  maxIntensityBoost: 0.18,
+  echoMix: 0.5,
+  noteDuration: 0.6
 };
 const levelConfigs = [
   {
@@ -149,7 +147,6 @@ let fireworksAnimationId = null;
 let fireworkTimers = [];
 let levelTransitionTimerId = null;
 let audioContext = null;
-let cachedTransientNoiseBuffer = null;
 let audioResumePromise = null;
 let backgroundMusicNodes = null;
 
@@ -870,26 +867,6 @@ function unlockAudioPlayback() {
   }
 }
 
-function getTransientNoiseBuffer(context) {
-  const bufferLength = Math.floor(context.sampleRate * eliminationSoundConfig.noiseDuration);
-  if (
-    cachedTransientNoiseBuffer &&
-    cachedTransientNoiseBuffer.sampleRate === context.sampleRate &&
-    cachedTransientNoiseBuffer.length === bufferLength
-  ) {
-    return cachedTransientNoiseBuffer;
-  }
-
-  const noiseBuffer = context.createBuffer(1, bufferLength, context.sampleRate);
-  const noiseData = noiseBuffer.getChannelData(0);
-  for (let index = 0; index < noiseData.length; index += 1) {
-    noiseData[index] = (Math.random() * 2 - 1) * (1 - index / noiseData.length);
-  }
-
-  cachedTransientNoiseBuffer = noiseBuffer;
-  return noiseBuffer;
-}
-
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -928,6 +905,8 @@ function playEliminationSound(cellCount, comboCount) {
 
   const startTime = context.currentTime;
   const intensity = getEliminationIntensity(cellCount, comboCount);
+
+  // 主输出：固定增益，整体淡出交由每个音符自身的衰减包络完成
   const masterGain = context.createGain();
   masterGain.gain.setValueAtTime(
     clamp(
@@ -937,74 +916,81 @@ function playEliminationSound(cellCount, comboCount) {
     ),
     startTime
   );
-  masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.26);
   masterGain.connect(context.destination);
 
-  const frequencies = [
-    560 + Math.min(240, cellCount * 22),
-    1020 + Math.min(300, comboCount * 30)
-  ];
+  // 轻量回声反馈，营造清脆的空间残响
+  const echoDelay = context.createDelay(0.5);
+  echoDelay.delayTime.setValueAtTime(0.14, startTime);
+  const echoFeedback = context.createGain();
+  echoFeedback.gain.setValueAtTime(0.22, startTime);
+  const echoWet = context.createGain();
+  echoWet.gain.setValueAtTime(eliminationSoundConfig.echoMix, startTime);
+  echoDelay.connect(echoFeedback);
+  echoFeedback.connect(echoDelay);
+  echoDelay.connect(echoWet);
+  echoWet.connect(context.destination);
 
-  frequencies.forEach((frequency, index) => {
-    const oscillator = context.createOscillator();
-    const envelope = context.createGain();
-    const toneFilter = context.createBiquadFilter();
-    const delay = index * 0.036;
-    const tonePeak = (index === 0 ? 0.72 : 0.54) + intensity * 0.12;
+  // 上行五声音阶琶音：连击越高起音越高、消除越多音符越多，强化奖励感
+  const pentatonicSteps = [0, 2, 4, 7, 9];
+  const baseSemitone = 60 + Math.min(comboCount, 10);
+  const noteCount = clamp(2 + Math.floor(cellCount / 2), 2, 5);
 
-    envelope.gain.setValueAtTime(0.0001, startTime + delay);
-    envelope.gain.linearRampToValueAtTime(tonePeak, startTime + delay + 0.005);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + delay + eliminationSoundConfig.toneDuration);
+  for (let index = 0; index < noteCount; index += 1) {
+    const step = pentatonicSteps[index % pentatonicSteps.length];
+    const octaveShift = Math.floor(index / pentatonicSteps.length) * 12;
+    const semitone = baseSemitone + step + octaveShift;
+    const frequency = 440 * Math.pow(2, (semitone - 69) / 12);
+    const when = startTime + index * 0.055;
+    const peakGain = clamp(0.5 - index * 0.05 + intensity * 0.12, 0.05, 1);
 
-    toneFilter.type = "highpass";
-    toneFilter.frequency.setValueAtTime(index === 0 ? 340 : 520, startTime);
-    envelope.connect(toneFilter);
-    toneFilter.connect(masterGain);
+    playBellNote(context, masterGain, echoDelay, frequency, when, peakGain);
+  }
 
-    oscillator.type = index === 0 ? "triangle" : "sine";
-    oscillator.frequency.setValueAtTime(frequency, startTime);
-    oscillator.frequency.exponentialRampToValueAtTime(
-      frequency * (index === 0 ? 1.28 : 1.16),
-      startTime + delay + 0.082
-    );
-    oscillator.connect(envelope);
-    oscillator.start(startTime + delay);
-    oscillator.stop(startTime + delay + eliminationSoundConfig.toneDuration + 0.018);
-  });
-
+  // 收尾的高频亮点，增加“清脆”质感
   const sparkle = context.createOscillator();
   const sparkleEnvelope = context.createGain();
-  sparkle.type = "triangle";
-  sparkle.frequency.setValueAtTime(1820 + Math.min(360, comboCount * 40), startTime);
-  sparkle.frequency.exponentialRampToValueAtTime(1460, startTime + 0.06);
+  sparkle.type = "sine";
+  sparkle.frequency.setValueAtTime(2400 + Math.min(900, comboCount * 80), startTime);
   sparkleEnvelope.gain.setValueAtTime(0.0001, startTime);
   sparkleEnvelope.gain.linearRampToValueAtTime(
-    eliminationSoundConfig.sparkleGain + intensity * 0.06,
-    startTime + 0.004
+    eliminationSoundConfig.sparkleGain + intensity * 0.05,
+    startTime + 0.006
   );
-  sparkleEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.07);
+  sparkleEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.18);
   sparkle.connect(sparkleEnvelope);
   sparkleEnvelope.connect(masterGain);
   sparkle.start(startTime);
-  sparkle.stop(startTime + 0.08);
+  sparkle.stop(startTime + 0.2);
+}
 
-  const noise = context.createBufferSource();
-  const noiseFilter = context.createBiquadFilter();
-  const noiseEnvelope = context.createGain();
-  noise.buffer = getTransientNoiseBuffer(context);
-  noiseFilter.type = "highpass";
-  noiseFilter.frequency.setValueAtTime(eliminationSoundConfig.noiseHighpassHz, startTime);
-  noiseEnvelope.gain.setValueAtTime(0.0001, startTime);
-  noiseEnvelope.gain.linearRampToValueAtTime(
-    eliminationSoundConfig.transientGain + intensity * 0.05,
-    startTime + 0.003
-  );
-  noiseEnvelope.gain.exponentialRampToValueAtTime(0.0001, startTime + eliminationSoundConfig.noiseDuration);
-  noise.connect(noiseFilter);
-  noiseFilter.connect(noiseEnvelope);
-  noiseEnvelope.connect(masterGain);
-  noise.start(startTime);
-  noise.stop(startTime + eliminationSoundConfig.noiseDuration + 0.01);
+function playBellNote(context, dryDestination, wetDestination, frequency, when, peakGain) {
+  // 钟琴/八音盒音色：基频叠加谐波泛音，快速起音 + 指数衰减
+  const harmonics = [
+    { ratio: 1, gain: 1 },
+    { ratio: 2, gain: 0.5 },
+    { ratio: 3, gain: 0.25 },
+    { ratio: 4.2, gain: 0.12 }
+  ];
+  const duration = eliminationSoundConfig.noteDuration;
+
+  const voiceGain = context.createGain();
+  voiceGain.gain.setValueAtTime(0.0001, when);
+  voiceGain.gain.linearRampToValueAtTime(clamp(peakGain, 0.0001, 1), when + 0.005);
+  voiceGain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+  voiceGain.connect(dryDestination);
+  voiceGain.connect(wetDestination);
+
+  harmonics.forEach((harmonic) => {
+    const oscillator = context.createOscillator();
+    const partialGain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency * harmonic.ratio, when);
+    partialGain.gain.setValueAtTime(harmonic.gain, when);
+    oscillator.connect(partialGain);
+    partialGain.connect(voiceGain);
+    oscillator.start(when);
+    oscillator.stop(when + duration + 0.05);
+  });
 }
 
 
