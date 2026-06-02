@@ -79,6 +79,7 @@ const levelConfigs = [
   {
     id: 2,
     title: "LEVEL 2",
+    useRandomBoard: true,
     rows: 12,
     columns: 10,
     timeLimit: 35,
@@ -153,7 +154,16 @@ let audioResumePromise = null;
 let backgroundMusicNodes = null;
 
 function createStartingBoard() {
-  board = createSolvableBoard();
+  // LEVEL 1 仍用可解生成器保证新手可通关；标记了 useRandomBoard 的关卡（LEVEL 2）改用纯随机铺盘。
+  board = getCurrentLevelConfig().useRandomBoard
+    ? createRandomBoard()
+    : createSolvableBoard();
+}
+
+function createRandomBoard() {
+  return Array.from({ length: getRowCount() }, () =>
+    Array.from({ length: getColumnCount() }, () => minValue + Math.floor(Math.random() * maxValue))
+  );
 }
 
 function getCurrentLevelConfig() {
