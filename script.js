@@ -149,6 +149,10 @@ let levelTransitionTimerId = null;
 let audioContext = null;
 let audioResumePromise = null;
 let backgroundMusicNodes = null;
+let bgmSchedulerId = null;
+let bgmNextNoteTime = 0;
+let bgmStep = 0;
+let cachedBgmNoiseBuffer = null;
 
 function createStartingBoard() {
   // LEVEL 1 仍用可解生成器保证新手可通关；标记了 useRandomBoard 的关卡（LEVEL 2）改用纯随机铺盘。
@@ -994,6 +998,38 @@ function playBellNote(context, dryDestination, wetDestination, frequency, when, 
 }
 
 
+// 欢快的芯片音 BGM：用前瞻调度器按拍触发鼓点、贝斯与旋律。
+// 贝斯走 C–Am–F–G 进行，旋律是 C 大调五声音阶上下行。
+const bgmBassPattern = [48, null, null, null, 45, null, null, null, 41, null, null, null, 43, null, null, null];
+const bgmLeadPattern = [72, 76, 79, 81, 79, 76, 72, 74, 76, 79, 84, 81, 79, 76, 74, 72];
+
+function midiToFrequency(midi) {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+// 紧张度：随倒计时推进从 0 升到 1（剩余时间越少越紧张）。
+function getMusicTension() {
+  const levelConfig = getCurrentLevelConfig();
+  if (levelConfig.timeLimit <= 0) {
+    return 0;
+  }
+  return clamp(1 - secondsLeft / levelConfig.timeLimit, 0, 1);
+}
+
+function getBgmNoiseBuffer(context) {
+  if (cachedBgmNoiseBuffer && cachedBgmNoiseBuffer.sampleRate === context.sampleRate) {
+    return cachedBgmNoiseBuffer;
+  }
+  const length = Math.floor(context.sampleRate * 0.2);
+  const buffer = context.createBuffer(1, length, context.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let index = 0; index < length; index += 1) {
+    data[index] = Math.random() * 2 - 1;
+  }
+  cachedBgmNoiseBuffer = buffer;
+  return buffer;
+}
+
 function startBackgroundMusic() {
   const context = getAudioContext();
   if (!context || context.state === "closed" || backgroundMusicNodes) {
@@ -1001,55 +1037,147 @@ function startBackgroundMusic() {
   }
 
   const master = context.createGain();
-  master.gain.value = 0.0001;
+  master.gain.setValueAtTime(0.0001, context.currentTime);
+  master.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 1.0);
   master.connect(context.destination);
 
-  const pulse = context.createOscillator();
-  const pulseGain = context.createGain();
-  pulse.type = "sawtooth";
-  pulse.frequency.value = 88;
-  pulseGain.gain.value = 0.05;
-  pulse.connect(pulseGain);
-  pulseGain.connect(master);
-
-  const tension = context.createOscillator();
-  const tensionGain = context.createGain();
-  tension.type = "triangle";
-  tension.frequency.value = 176;
-  tensionGain.gain.value = 0.03;
-  tension.connect(tensionGain);
-  tensionGain.connect(master);
-
-  const lfo = context.createOscillator();
-  const lfoGain = context.createGain();
-  lfo.type = "sine";
-  lfo.frequency.value = 2.8;
-  lfoGain.gain.value = 22;
-  lfo.connect(lfoGain);
-  lfoGain.connect(tension.frequency);
-
-  const now = context.currentTime;
-  pulse.start(now);
-  tension.start(now);
-  lfo.start(now);
-  master.gain.exponentialRampToValueAtTime(0.11, now + 1.3);
-
-  backgroundMusicNodes = { master, pulse, pulseGain, tension, tensionGain, lfo, lfoGain };
+  backgroundMusicNodes = { master };
+  bgmStep = 0;
+  bgmNextNoteTime = context.currentTime + 0.12;
+  bgmSchedulerId = window.setInterval(scheduleBackgroundMusic, 25);
 }
 
 function stopBackgroundMusic() {
+  if (bgmSchedulerId !== null) {
+    window.clearInterval(bgmSchedulerId);
+    bgmSchedulerId = null;
+  }
   if (!audioContext || !backgroundMusicNodes) {
+    backgroundMusicNodes = null;
     return;
   }
-  const { master, pulse, tension, lfo } = backgroundMusicNodes;
-  const endAt = audioContext.currentTime + 0.28;
+  const { master } = backgroundMusicNodes;
+  const endAt = audioContext.currentTime + 0.3;
   master.gain.cancelScheduledValues(audioContext.currentTime);
   master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), audioContext.currentTime);
   master.gain.exponentialRampToValueAtTime(0.0001, endAt);
-  [pulse, tension, lfo].forEach((node) => {
-    try { node.stop(endAt + 0.02); } catch (error) {}
-  });
   backgroundMusicNodes = null;
+}
+
+// 前瞻调度器：每 25ms 检查一次，提前把未来 ~120ms 内的拍子排进音频时钟，保证节奏精准。
+function scheduleBackgroundMusic() {
+  const context = audioContext;
+  if (!context || !backgroundMusicNodes) {
+    return;
+  }
+
+  const tension = getMusicTension();
+  const bpm = 112 + tension * 72;          // 112 → 184 BPM，越接近时间耗尽节奏越快
+  const secondsPerStep = 60 / bpm / 4;     // 以十六分音符为一步
+
+  // 紧张度越高整体音量略增，营造压迫感
+  backgroundMusicNodes.master.gain.setTargetAtTime(0.16 + tension * 0.06, context.currentTime, 0.5);
+
+  while (bgmNextNoteTime < context.currentTime + 0.12) {
+    scheduleMusicStep(context, bgmStep, bgmNextNoteTime, tension, secondsPerStep);
+    bgmNextNoteTime += secondsPerStep;
+    bgmStep = (bgmStep + 1) % 16;
+  }
+}
+
+function scheduleMusicStep(context, step, when, tension, secondsPerStep) {
+  const dest = backgroundMusicNodes.master;
+
+  // 底鼓：四分音符 four-on-the-floor，稳定律动
+  if (step % 4 === 0) {
+    bgmPlayKick(context, dest, when);
+  }
+
+  // 军鼓：2、4 拍反拍
+  if (step === 4 || step === 12) {
+    bgmPlaySnare(context, dest, when);
+  }
+
+  // 镲片：平时八分音符，紧张时每个十六分音符都打，听感更急促
+  if (step % 2 === 0 || tension > 0.55) {
+    bgmPlayHat(context, dest, when, 0.06 + tension * 0.05);
+  }
+
+  // 贝斯：和弦根音，持续约一拍
+  const bassMidi = bgmBassPattern[step];
+  if (bassMidi !== null) {
+    bgmPlayTone(context, dest, midiToFrequency(bassMidi), when, secondsPerStep * 4 * 0.9, "triangle", 0.28);
+  }
+
+  // 旋律：五声音阶，高紧张时升八度更尖锐
+  const leadMidi = bgmLeadPattern[step];
+  if (leadMidi !== null) {
+    const octaveShift = tension > 0.7 ? 12 : 0;
+    bgmPlayTone(context, dest, midiToFrequency(leadMidi + octaveShift), when, 0.12, "square", 0.12);
+  }
+}
+
+function bgmPlayTone(context, dest, frequency, when, duration, type, peak) {
+  const oscillator = context.createOscillator();
+  const envelope = context.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, when);
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(peak, when + 0.01);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+  oscillator.connect(envelope);
+  envelope.connect(dest);
+  oscillator.start(when);
+  oscillator.stop(when + duration + 0.05);
+}
+
+function bgmPlayKick(context, dest, when) {
+  const oscillator = context.createOscillator();
+  const envelope = context.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(150, when);
+  oscillator.frequency.exponentialRampToValueAtTime(48, when + 0.12);
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(0.5, when + 0.005);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + 0.16);
+  oscillator.connect(envelope);
+  envelope.connect(dest);
+  oscillator.start(when);
+  oscillator.stop(when + 0.2);
+}
+
+function bgmPlayHat(context, dest, when, peak) {
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const envelope = context.createGain();
+  source.buffer = getBgmNoiseBuffer(context);
+  filter.type = "highpass";
+  filter.frequency.setValueAtTime(7000, when);
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(peak, when + 0.002);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + 0.05);
+  source.connect(filter);
+  filter.connect(envelope);
+  envelope.connect(dest);
+  source.start(when);
+  source.stop(when + 0.06);
+}
+
+function bgmPlaySnare(context, dest, when) {
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const envelope = context.createGain();
+  source.buffer = getBgmNoiseBuffer(context);
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1800, when);
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(0.3, when + 0.003);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + 0.16);
+  source.connect(filter);
+  filter.connect(envelope);
+  envelope.connect(dest);
+  source.start(when);
+  source.stop(when + 0.2);
 }
 
 function onBoardPointerDown(event) {
