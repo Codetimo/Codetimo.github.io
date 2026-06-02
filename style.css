@@ -197,6 +197,10 @@ button {
   transform: translateY(-1px);
 }
 
+.board-timer {
+  display: none;
+}
+
 .board-stage {
   position: relative;
 }
@@ -444,6 +448,16 @@ button {
 
   .result-overlay {
     inset: 10px;
+  }
+
+  /* 移动端：进度条下移到棋盘正上方，隐藏顶部统计区里的那条 */
+  .board-timer {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .timer-box .timer-progress {
+    display: none;
   }
 }
 

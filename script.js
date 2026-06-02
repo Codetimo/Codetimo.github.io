@@ -10,7 +10,7 @@ const cellTemplate = document.querySelector("#cellTemplate");
 const fireworksCanvas = document.querySelector("#fireworksCanvas");
 const resultOverlay = document.querySelector("#resultOverlay");
 const timerBox = timerElement.closest(".timer-box");
-const timerProgressBar = document.querySelector("#timerProgressBar");
+const timerProgressBars = document.querySelectorAll(".timer-progress-bar");
 
 const minValue = 1;
 const maxValue = 9;
@@ -153,6 +153,7 @@ let bgmSchedulerId = null;
 let bgmNextNoteTime = 0;
 let bgmStep = 0;
 let cachedBgmNoiseBuffer = null;
+let bgmTensionRelief = 0;
 
 function createStartingBoard() {
   // LEVEL 1 仍用可解生成器保证新手可通关；标记了 useRandomBoard 的关卡（LEVEL 2）改用纯随机铺盘。
@@ -800,9 +801,9 @@ function updateStats() {
   timerElement.textContent = formatTime(secondsLeft);
   timerBox.classList.toggle("warning", secondsLeft <= 30);
   const ratio = levelConfig.timeLimit > 0 ? clamp(secondsLeft / levelConfig.timeLimit, 0, 1) : 0;
-  if (timerProgressBar) {
-    timerProgressBar.style.transform = `scaleX(${ratio})`;
-  }
+  timerProgressBars.forEach((bar) => {
+    bar.style.transform = `scaleX(${ratio})`;
+  });
   hintButton.hidden = !levelConfig.hintEnabled;
   hintButton.disabled = gameState !== "playing" || !levelConfig.hintEnabled;
 }
@@ -1043,6 +1044,7 @@ function startBackgroundMusic() {
 
   backgroundMusicNodes = { master };
   bgmStep = 0;
+  bgmTensionRelief = 0;
   bgmNextNoteTime = context.currentTime + 0.12;
   bgmSchedulerId = window.setInterval(scheduleBackgroundMusic, 25);
 }
@@ -1064,6 +1066,12 @@ function stopBackgroundMusic() {
   backgroundMusicNodes = null;
 }
 
+// 成功消除时调用：把紧张度临时拉回放松，并让节奏从头起拍，随后由调度器逐渐恢复。
+function relaxBackgroundMusic() {
+  bgmTensionRelief = 1;
+  bgmStep = 0;
+}
+
 // 前瞻调度器：每 25ms 检查一次，提前把未来 ~120ms 内的拍子排进音频时钟，保证节奏精准。
 function scheduleBackgroundMusic() {
   const context = audioContext;
@@ -1071,7 +1079,9 @@ function scheduleBackgroundMusic() {
     return;
   }
 
-  const tension = getMusicTension();
+  // 成功消除带来的“放缓”随时间自然恢复（约 4 秒回到由倒计时决定的紧张度）
+  bgmTensionRelief = Math.max(0, bgmTensionRelief - 0.006);
+  const tension = clamp(getMusicTension() * (1 - bgmTensionRelief), 0, 1);
   const bpm = 112 + tension * 72;          // 112 → 184 BPM，越接近时间耗尽节奏越快
   const secondsPerStep = 60 / bpm / 4;     // 以十六分音符为一步
 
@@ -1274,6 +1284,7 @@ function finalizeSelection() {
   combo += 1;
   score += 10 + Math.max(0, eliminatedCount - 2) * 4 + (combo - 1) * 5;
   playEliminationSound(eliminatedCount, combo);
+  relaxBackgroundMusic();
   clearSelection();
 
   const remainingCells = countRemainingCells();
