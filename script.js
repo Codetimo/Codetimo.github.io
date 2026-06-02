@@ -148,6 +148,7 @@ let fireworkTimers = [];
 let levelTransitionTimerId = null;
 let audioContext = null;
 let audioResumePromise = null;
+let audioUnlocked = false;
 let backgroundMusicNodes = null;
 let bgmSchedulerId = null;
 let bgmNextNoteTime = 0;
@@ -858,9 +859,34 @@ function getAudioContext() {
   return audioContext;
 }
 
+// iOS Safari 仅调用 resume() 往往无法解锁，必须在用户手势的同步调用栈里
+// 真正启动一个音频节点。这里播放一段极短的静音 buffer 完成首次解锁。
+function primeAudioWithSilentBuffer(context) {
+  if (audioUnlocked) {
+    return;
+  }
+  try {
+    const buffer = context.createBuffer(1, 1, context.sampleRate);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    source.start(0);
+    audioUnlocked = true;
+  } catch (error) {
+    // 解锁失败不应中断游戏逻辑，下次手势会再次尝试
+  }
+}
+
 function unlockAudioPlayback() {
   const context = getAudioContext();
-  if (context && context.state === "suspended") {
+  if (!context) {
+    return;
+  }
+
+  // 必须在手势同步栈内启动节点，故先于异步的 resume() 执行
+  primeAudioWithSilentBuffer(context);
+
+  if (context.state === "suspended") {
     if (!audioResumePromise) {
       audioResumePromise = context.resume().finally(() => {
         audioResumePromise = null;
@@ -869,6 +895,8 @@ function unlockAudioPlayback() {
         startBackgroundMusic();
       }).catch(() => {});
     }
+  } else {
+    startBackgroundMusic();
   }
 }
 
@@ -1763,5 +1791,24 @@ boardElement.addEventListener("lostpointercapture", onBoardLostPointerCapture);
 window.addEventListener("resize", resizeFireworksCanvas);
 restartButton.addEventListener("click", restartGame);
 hintButton.addEventListener("click", showHint);
+
+// 全局首次交互兜底：无论用户先点到页面哪里，都在该手势内尝试解锁音频。
+// pointerdown 覆盖鼠标/触摸/手写笔；touchend 兜底个别只在抬手时放行音频的移动浏览器。
+function handleFirstInteraction() {
+  unlockAudioPlayback();
+  if (audioUnlocked) {
+    document.removeEventListener("pointerdown", handleFirstInteraction);
+    document.removeEventListener("touchend", handleFirstInteraction);
+  }
+}
+document.addEventListener("pointerdown", handleFirstInteraction);
+document.addEventListener("touchend", handleFirstInteraction);
+
+// iOS 切到后台会把 AudioContext 挂起，回到前台时主动恢复。
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && audioContext && audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+});
 
 restartGame();
