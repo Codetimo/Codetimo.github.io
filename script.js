@@ -940,11 +940,11 @@ function getEliminationIntensity(cellCount, comboCount) {
 
 function playEliminationSound(cellCount, comboCount) {
   const context = getAudioContext();
-  if (!context || context.state === “closed”) {
+  if (!context || context.state === "closed") {
     return;
   }
 
-  if (context.state === “suspended”) {
+  if (context.state === "suspended") {
     if (!audioResumePromise) {
       audioResumePromise = context.resume().finally(() => {
         audioResumePromise = null;
@@ -990,12 +990,12 @@ function playEliminationSound(cellCount, comboCount) {
     envelope.gain.linearRampToValueAtTime(tonePeak, startTime + delay + 0.005);
     envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + delay + eliminationSoundConfig.toneDuration);
 
-    toneFilter.type = “highpass”;
+    toneFilter.type = "highpass";
     toneFilter.frequency.setValueAtTime(index === 0 ? 340 : 520, startTime);
     envelope.connect(toneFilter);
     toneFilter.connect(masterGain);
 
-    oscillator.type = index === 0 ? “triangle” : “sine”;
+    oscillator.type = index === 0 ? "triangle" : "sine";
     oscillator.frequency.setValueAtTime(frequency, startTime);
     oscillator.frequency.exponentialRampToValueAtTime(
       frequency * (index === 0 ? 1.28 : 1.16),
@@ -1008,7 +1008,7 @@ function playEliminationSound(cellCount, comboCount) {
 
   const sparkle = context.createOscillator();
   const sparkleEnvelope = context.createGain();
-  sparkle.type = “triangle”;
+  sparkle.type = "triangle";
   sparkle.frequency.setValueAtTime(1820 + Math.min(360, comboCount * 40), startTime);
   sparkle.frequency.exponentialRampToValueAtTime(1460, startTime + 0.06);
   sparkleEnvelope.gain.setValueAtTime(0.0001, startTime);
@@ -1026,7 +1026,7 @@ function playEliminationSound(cellCount, comboCount) {
   const noiseFilter = context.createBiquadFilter();
   const noiseEnvelope = context.createGain();
   noise.buffer = getTransientNoiseBuffer(context);
-  noiseFilter.type = “highpass”;
+  noiseFilter.type = "highpass";
   noiseFilter.frequency.setValueAtTime(eliminationSoundConfig.noiseHighpassHz, startTime);
   noiseEnvelope.gain.setValueAtTime(0.0001, startTime);
   noiseEnvelope.gain.linearRampToValueAtTime(
@@ -1122,7 +1122,7 @@ function scheduleBackgroundMusic() {
     return;
   }
 
-  // 成功消除带来的”放缓”随时间自然恢复（约 4 秒回到由倒计时决定的紧张度）
+  // 成功消除带来的"放缓"随时间自然恢复（约 4 秒回到由倒计时决定的紧张度）
   bgmTensionRelief = Math.max(0, bgmTensionRelief - 0.006);
   const tension = clamp(getMusicTension() * (1 - bgmTensionRelief), 0, 1);
   const bpm = 132 + tension * 16;          // 132 → 148 BPM，轻微加速，保持欢快基调
