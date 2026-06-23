@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="《The Founder’s Playbook: Building an AI-Native Startup》中文导读与重写版：面向 AI 原生创业者的 Idea、MVP、Launch、Scale 四阶段手册。">
+  <title>AI 原生创业者手册中文版｜Codetimo AI Frontier</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="返回 Codetimo AI Frontier 首页">
+      <span class="brand-mark">C</span>
+      <span>
+        <strong>Codetimo AI Frontier</strong>
+        <small>中文 AI 前沿资料库</small>
+      </span>
+    </a>
+    <nav class="site-nav" aria-label="文章导航">
+      <a href="../index.html#featured">首页精选</a>
+      <a href="#framework">四阶段框架</a>
+      <a href="#toolkit">工具矩阵</a>
+      <a href="#checklist">执行清单</a>
+    </nav>
+  </header>
+
+  <main class="article-shell">
+    <article class="article-page">
+      <header class="article-hero">
+        <p class="eyebrow">Anthropic · 2026-05-14 · 中文导读</p>
+        <h1>AI 原生创业者手册：从想法、MVP、发布到规模化</h1>
+        <p class="article-lead">
+          本文是对 Anthropic 官方手册 <em>The Founder’s Playbook: Building an AI-Native Startup</em> 的中文导读与重写版。它不是逐字翻译，而是把官方手册的核心框架整理成更适合中文读者阅读和执行的版本。
+        </p>
+        <div class="article-actions">
+          <a class="primary-link" href="#framework">开始阅读中文版</a>
+          <a class="secondary-link" href="https://claude.com/blog/the-founders-playbook" target="_blank" rel="noreferrer">查看官方原文</a>
+        </div>
+      </header>
+
+      <aside class="article-note">
+        <strong>编辑说明</strong>
+        <p>
+          Anthropic 在官方页面中说明，这份 playbook 面向正在用 AI 重构公司架构的创始人与早期运营者，围绕 Idea、MVP、Launch、Scale 四个创业阶段，提供目标、退出标准、常见失败模式和 AI 辅助练习。本站版本保留框架，改写为中文实战手册。
+        </p>
+      </aside>
+
+      <section class="article-section">
+        <h2>一句话总结</h2>
+        <p>
+          AI 原生创业不是“给传统创业流程加一个聊天机器人”，而是把 AI 当成公司一开始就内置的生产系统：用 AI 做问题研究、市场验证、代码生成、产品迭代、用户反馈分析、运营自动化和团队协作。创始人的角色会从“亲手完成每件事的人”，转向“设计系统、判断方向、分配注意力的人”。
+        </p>
+      </section>
+
+      <section class="article-section" id="framework">
+        <h2>四阶段框架</h2>
+        <div class="stage-grid">
+          <section class="stage-card">
+            <span>01</span>
+            <h3>Idea：验证问题，而不是迷恋点子</h3>
+            <p>
+              这一阶段的目标不是写商业计划书，而是判断问题是否真实、紧迫、值得解决。AI 可以帮助你快速梳理目标用户、竞品地图、替代方案和潜在访谈问题，但最终判断仍然来自真实用户的行为与付费意愿。
+            </p>
+            <h4>建议做法</h4>
+            <ul>
+              <li>把点子改写成一个清晰的问题假设：谁在什么场景下遇到什么高频痛点？</li>
+              <li>让 AI 帮你列出竞品、替代流程、用户现在的土办法和可能的反对意见。</li>
+              <li>准备 10–20 个客户访谈问题，重点问过去行为，不问“你会不会用”。</li>
+              <li>输出一页 Problem Memo：目标用户、痛点证据、现有方案、为什么现在是时机。</li>
+            </ul>
+            <h4>退出标准</h4>
+            <p>你能清楚说出一个窄人群的强痛点，并拿到足够多的访谈证据、等待名单、预购、试点意向或其他真实信号。</p>
+          </section>
+
+          <section class="stage-card">
+            <span>02</span>
+            <h3>MVP：用最小产品验证最大风险</h3>
+            <p>
+              MVP 不是“功能少一点的完整产品”，而是用最小成本验证最关键的不确定性。对 AI 原生团队来说，Claude Code 等工具可以大幅降低原型成本，但也更容易让团队过早堆功能、积累难维护的代码。
+            </p>
+            <h4>建议做法</h4>
+            <ul>
+              <li>先列出当前最大风险：用户是否真的需要？技术是否可行？数据是否足够？分发是否成立？</li>
+              <li>只为这个最大风险做 MVP，不为想象中的完整产品做 MVP。</li>
+              <li>让 AI 协助生成原型、测试用例、错误状态、边界场景和文档。</li>
+              <li>建立最基本的工程边界：代码结构、日志、权限、数据处理、回滚方案和可读 README。</li>
+            </ul>
+            <h4>退出标准</h4>
+            <p>目标用户愿意反复使用，愿意给出具体反馈，甚至愿意为一个粗糙但有效的版本付费或签试点。</p>
+          </section>
+
+          <section class="stage-card">
+            <span>03</span>
+            <h3>Launch：区分真实 PMF 与早期热闹</h3>
+            <p>
+              发布不是终点，而是把产品放进真实市场后的测量系统。AI 可以帮助你整理反馈、归纳用户分群、生成更新日志和客服回复，但创始人需要判断：增长来自真正价值，还是来自新鲜感、社交传播或一次性流量。
+            </p>
+            <h4>建议做法</h4>
+            <ul>
+              <li>提前定义核心指标：激活、留存、复用频率、付费转化、推荐率、关键任务完成率。</li>
+              <li>让 AI 每天整理用户反馈，把抱怨、请求、流失原因和高频使用场景归类。</li>
+              <li>把发布节奏做成操作系统：公告、邮件、社媒、用户访谈、产品分析、迭代优先级。</li>
+              <li>警惕“很多人点赞但没人持续使用”的假信号。</li>
+            </ul>
+            <h4>退出标准</h4>
+            <p>有一类用户明确把产品纳入工作流，并出现自然复用、主动推荐、愿意付费或愿意扩大试点的信号。</p>
+          </section>
+
+          <section class="stage-card">
+            <span>04</span>
+            <h3>Scale：把创始人的注意力替换成系统</h3>
+            <p>
+              规模化阶段的关键不是招更多人手动处理所有事，而是把重复性判断、信息整理、运营动作和工程流程逐步系统化。AI 原生公司的优势在于：从第一天就能把内部流程设计成“人类判断 + AI 执行 + 可观测反馈”的组合。
+            </p>
+            <h4>建议做法</h4>
+            <ul>
+              <li>找出创始人每周最耗时的重复工作：销售跟进、客户支持、数据分析、竞品监控、代码维护。</li>
+              <li>把这些工作拆成输入、判断规则、输出和验收标准，再交给 AI 工作流辅助执行。</li>
+              <li>为每个 AI 工作流设置人工复核点，确保关键决策仍由人负责。</li>
+              <li>把最佳实践写成 playbook，让新人和 AI 都能复用同一套上下文。</li>
+            </ul>
+            <h4>退出标准</h4>
+            <p>团队能够在不线性增加人力的情况下处理更多客户、更复杂产品和更频繁迭代。</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="article-section" id="toolkit">
+        <h2>Claude 工具矩阵：什么时候用什么</h2>
+        <div class="tool-matrix">
+          <div>
+            <strong>Claude Chat</strong>
+            <p>适合头脑风暴、访谈问题、市场梳理、定位推演、用户反馈总结和写作润色。</p>
+          </div>
+          <div>
+            <strong>Claude Code</strong>
+            <p>适合代码库理解、原型开发、重构、测试、脚本、自动化任务和工程文档。</p>
+          </div>
+          <div>
+            <strong>Claude Cowork / 团队协作</strong>
+            <p>适合把 AI 放进团队工作流：会议纪要、任务分解、跨角色协作和上下文沉淀。</p>
+          </div>
+          <div>
+            <strong>Claude Apps / 集成能力</strong>
+            <p>适合连接浏览器、文档、工作区和业务资料，让 AI 在真实上下文中辅助执行。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>可直接使用的练习题</h2>
+        <div class="prompt-list">
+          <article>
+            <h3>问题验证 Prompt</h3>
+            <p>“请把我的创业想法拆成 5 个可验证的问题假设，并为每个假设设计访谈问题、反证信号和最小验证实验。”</p>
+          </article>
+          <article>
+            <h3>MVP 范围 Prompt</h3>
+            <p>“请帮我把这个产品想法压缩成只验证一个核心风险的 MVP，列出必须做、暂缓做、绝对不做的功能。”</p>
+          </article>
+          <article>
+            <h3>发布复盘 Prompt</h3>
+            <p>“以下是过去一周的用户反馈和数据，请帮我区分真实 PMF 信号、噪音信号和需要继续验证的假设。”</p>
+          </article>
+          <article>
+            <h3>规模化流程 Prompt</h3>
+            <p>“请把这项重复运营工作拆成标准流程，标出哪些步骤可以由 AI 草拟、哪些必须人工确认、哪些需要记录成知识库。”</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="article-section" id="checklist">
+        <h2>创始人执行清单</h2>
+        <ol class="checklist">
+          <li>用一句话写清楚目标用户、痛点、场景和现有替代方案。</li>
+          <li>完成至少 10 次高质量用户访谈，并记录真实行为证据。</li>
+          <li>把竞品地图、用户旅程和付费触发点整理成一页备忘录。</li>
+          <li>定义 MVP 只验证一个最大风险，而不是做一个缩小版完整产品。</li>
+          <li>在 Claude Code 中建立清晰的代码结构、测试、日志和文档。</li>
+          <li>发布前定义 3–5 个核心指标，避免被浏览量、点赞或短期热度误导。</li>
+          <li>每周用 AI 总结用户反馈，但由创始人亲自判断产品优先级。</li>
+          <li>把重复工作沉淀为 SOP，再逐步变成 AI 辅助流程。</li>
+          <li>保留人工复核点，尤其是涉及产品方向、客户承诺和重要数据的环节。</li>
+          <li>持续更新团队知识库，让人和 AI 使用同一套上下文。</li>
+        </ol>
+      </section>
+
+      <section class="article-section closing-section">
+        <h2>读完后应该做什么</h2>
+        <p>
+          不要把这份手册当成“创业鸡血文”。更好的使用方式是：选中你当前所在阶段，只做该阶段最重要的 1–2 个动作。如果你还在 Idea 阶段，就不要急着写完整产品；如果你在 Launch 阶段，就不要只看曝光数据；如果你在 Scale 阶段，就不要让创始人继续手动处理所有重复事务。
+        </p>
+        <p>
+          AI 原生创业的核心不是更快地做更多事，而是更早地建立一个可学习、可复用、可扩展的工作系统。
+        </p>
+        <div class="article-actions">
+          <a class="primary-link" href="../index.html">返回中文资料库</a>
+          <a class="secondary-link" href="https://claude.com/blog/the-founders-playbook" target="_blank" rel="noreferrer">官方原文</a>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Codetimo. 中文导读与整理，原文版权归 Anthropic / Claude 所有。</p>
+    <a href="#top">回到顶部 ↑</a>
+  </footer>
+</body>
+</html>
