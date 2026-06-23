@@ -3,89 +3,235 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>开局托儿所 - 网页简易版</title>
+  <meta name="description" content="Codetimo AI Frontier：专注收藏、翻译与分享 OpenAI、Anthropic 最新进展、文章与 Claude Code 教程的中文入口。">
+  <title>Codetimo AI Frontier 中文收藏夹</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <main class="app-shell">
-    <section class="hero-card">
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Codetimo AI Frontier 首页">
+      <span class="brand-mark">C</span>
+      <span>
+        <strong>Codetimo AI Frontier</strong>
+        <small>OpenAI × Anthropic 中文收藏夹</small>
+      </span>
+    </a>
+    <nav class="site-nav" aria-label="页面导航">
+      <a href="#featured">精选</a>
+      <a href="#openai">OpenAI</a>
+      <a href="#anthropic">Anthropic</a>
+      <a href="#learning">Claude Code</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero-section">
       <div class="hero-copy">
-        <p class="eyebrow">网页端简易复刻</p>
-        <h1>开局托儿所</h1>
-        <p class="subtitle">
-          按住鼠标左键拖动，拉出矩形选区。只要选区内所有数字总和等于
-          <strong>10</strong>，整块区域就会一起消失。你只有 <strong>2 分钟</strong>，
-          清空整盘就算通关。
+        <p class="eyebrow">中文精选 · 持续更新</p>
+        <h1>追踪 OpenAI 与 Anthropic 的最新进展、深度文章和实用教程。</h1>
+        <p class="hero-intro">
+          这里不再是前端小游戏，而是一个面向中文读者的 AI 前沿资料库：收录官方发布、产品更新、创业者文章、Claude Code 视频教程与值得精读的英文原文，并附上中文摘要与阅读建议。
         </p>
+        <div class="hero-actions" aria-label="快速入口">
+          <a class="primary-link" href="#featured">查看精选收藏</a>
+          <a class="secondary-link" href="https://openai.com/news/" target="_blank" rel="noreferrer">OpenAI News</a>
+          <a class="secondary-link" href="https://www.anthropic.com/news" target="_blank" rel="noreferrer">Anthropic News</a>
+        </div>
       </div>
 
-      <div class="stats-panel">
-        <div class="stat-box">
-          <span>得分</span>
-          <strong id="score">0</strong>
+      <aside class="hero-panel" aria-label="站点定位">
+        <div class="panel-card">
+          <span>定位</span>
+          <strong>AI 前沿中文索引</strong>
+          <p>少追热点，多做筛选、翻译和结构化整理。</p>
         </div>
-        <div class="stat-box">
-          <span>连击</span>
-          <strong id="combo">0</strong>
-        </div>
-        <div class="stat-box">
-          <span>可消选区</span>
-          <strong id="moves">0</strong>
-        </div>
-        <div class="stat-box timer-box">
-          <span>倒计时</span>
-          <strong id="timer">02:00</strong>
-          <div class="timer-progress" aria-hidden="true">
-            <div id="timerProgressBar" class="timer-progress-bar"></div>
+        <div class="panel-grid">
+          <div>
+            <strong>OpenAI</strong>
+            <span>模型 / Codex / 产品 / 应用</span>
           </div>
+          <div>
+            <strong>Anthropic</strong>
+            <span>Claude / Claude Code / 研究 / 创业</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="notice-card" aria-label="编辑说明">
+      <span class="notice-icon">✦</span>
+      <p>
+        当前为首版改版：先搭好中文资料库框架，并放入一批官方入口和待翻译选题。后续可以把每篇文章拆成独立中文页面，形成真正的长期知识库。
+      </p>
+    </section>
+
+    <section class="section-block" id="featured">
+      <div class="section-heading">
+        <p class="eyebrow">Featured</p>
+        <h2>首批精选收藏</h2>
+        <p>优先收录适合中文读者精读、翻译或做成教程的资料。</p>
+      </div>
+
+      <div class="cards-grid featured-grid">
+        <article class="resource-card feature-card">
+          <div class="card-meta">
+            <span>Anthropic</span>
+            <span>待翻译 · 创业</span>
+          </div>
+          <h3>The Founder’s Playbook: Building an AI-Native Startup</h3>
+          <p>
+            你提到的重点文章，适合整理成中文版创业手册：AI 原生团队如何定义产品、组织流程、招聘与增长。原文链接待补，先放入收录清单。
+          </p>
+          <div class="card-footer">
+            <span class="status status-waiting">待补原文链接</span>
+            <a href="https://claude.com/programs/startups" target="_blank" rel="noreferrer">Anthropic Startups</a>
+          </div>
+        </article>
+
+        <article class="resource-card feature-card">
+          <div class="card-meta">
+            <span>Claude Code</span>
+            <span>视频课程</span>
+          </div>
+          <h3>Claude Code in Action</h3>
+          <p>
+            官方视频课程入口，适合整理成中文实操路线：从阅读代码库、修改功能、运行命令到提交 PR 的完整工作流。
+          </p>
+          <div class="card-footer">
+            <span class="status status-ready">可收录</span>
+            <a href="https://anthropic.skilljar.com/claude-code-in-action" target="_blank" rel="noreferrer">打开课程</a>
+          </div>
+        </article>
+
+        <article class="resource-card feature-card">
+          <div class="card-meta">
+            <span>OpenAI</span>
+            <span>开发者工作流</span>
+          </div>
+          <h3>Codex-Maxxing for Long-Running Work</h3>
+          <p>
+            OpenAI 关于长时间 Codex 工作流的实践文章，适合翻译成“如何把 AI 编程代理用于复杂任务”的中文指南。
+          </p>
+          <div class="card-footer">
+            <span class="status status-ready">可收录</span>
+            <a href="https://openai.com/index/codex-maxxing-long-running-work/" target="_blank" rel="noreferrer">阅读原文</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="two-column-layout">
+      <div class="section-block compact" id="openai">
+        <div class="section-heading">
+          <p class="eyebrow">OpenAI Watch</p>
+          <h2>OpenAI 观察</h2>
+          <p>重点跟踪模型能力、Codex、产品化与企业应用。</p>
+        </div>
+
+        <div class="list-stack">
+          <a class="list-item" href="https://openai.com/news/" target="_blank" rel="noreferrer">
+            <span class="item-tag">官方入口</span>
+            <strong>OpenAI News</strong>
+            <p>统一追踪 OpenAI 官方发布、研究、产品、工程与应用文章。</p>
+          </a>
+          <a class="list-item" href="https://openai.com/index/codex-maxxing-long-running-work/" target="_blank" rel="noreferrer">
+            <span class="item-tag">Codex</span>
+            <strong>长任务 Codex 工作流</strong>
+            <p>关注 Codex 在复杂项目、长时间任务和团队协作中的实践方式。</p>
+          </a>
+          <a class="list-item" href="https://platform.openai.com/docs" target="_blank" rel="noreferrer">
+            <span class="item-tag">Docs</span>
+            <strong>OpenAI API 文档</strong>
+            <p>后续可补充模型、Agents、工具调用和应用开发的中文速查。</p>
+          </a>
+        </div>
+      </div>
+
+      <div class="section-block compact" id="anthropic">
+        <div class="section-heading">
+          <p class="eyebrow">Anthropic Watch</p>
+          <h2>Anthropic 观察</h2>
+          <p>重点跟踪 Claude、Claude Code、模型更新、研究和创业生态。</p>
+        </div>
+
+        <div class="list-stack">
+          <a class="list-item" href="https://www.anthropic.com/news" target="_blank" rel="noreferrer">
+            <span class="item-tag">官方入口</span>
+            <strong>Anthropic Newsroom</strong>
+            <p>统一追踪 Anthropic 官方新闻、产品、研究、政策和公告。</p>
+          </a>
+          <a class="list-item" href="https://www.anthropic.com/news/claude-opus-4-8" target="_blank" rel="noreferrer">
+            <span class="item-tag">Model</span>
+            <strong>Claude Opus 4.8</strong>
+            <p>适合整理为模型更新摘要：编码、代理任务、长任务和 Claude Code 动态工作流。</p>
+          </a>
+          <a class="list-item" href="https://claude.com/product/claude-code" target="_blank" rel="noreferrer">
+            <span class="item-tag">Product</span>
+            <strong>Claude Code</strong>
+            <p>Claude 的编程代理产品页，可作为中文教程和案例索引的起点。</p>
+          </a>
         </div>
       </div>
     </section>
 
-    <section class="playground">
-      <div class="board-frame">
-        <div class="board-head">
-          <div>
-            <h2>数字托儿班</h2>
-            <p id="status">按住左键拖动拉出矩形选区，松开左键后完成框选。</p>
-          </div>
-          <div class="actions">
-            <button id="hintButton" type="button" class="ghost-button">提示</button>
-            <button id="restartButton" type="button" class="primary-button">重新开局</button>
-          </div>
-        </div>
-
-        <div class="board-timer" aria-hidden="true">
-          <div class="timer-progress">
-            <div class="timer-progress-bar"></div>
-          </div>
-        </div>
-
-        <div class="board-stage">
-          <div id="board" class="board" aria-label="游戏棋盘"></div>
-          <canvas id="fireworksCanvas" class="fireworks-layer" aria-hidden="true"></canvas>
-          <div id="resultOverlay" class="result-overlay" aria-live="polite"></div>
-        </div>
+    <section class="section-block" id="learning">
+      <div class="section-heading centered">
+        <p class="eyebrow">Learning Path</p>
+        <h2>Claude Code 中文学习路线</h2>
+        <p>先收官方资料，再逐步补充中文笔记、视频教程链接和实战项目。</p>
       </div>
 
-      <aside class="rules-card">
-        <h3>规则</h3>
-        <ul>
-          <li>按住左键拖动，框出的矩形区域内所有非空格子都会参与计数。</li>
-          <li>空白格不会参与求和，也不会阻止框选。</li>
-          <li>整个选区总和等于 10 时会消除并得分。</li>
-          <li>消除后格子会直接留空，不会补新数字。</li>
-          <li>倒计时结束或清空整盘后，本局立即结算。</li>
-          <li>全程自动播放紧张背景音乐（首次操作后解锁播放）。</li>
-        </ul>
-      </aside>
+      <div class="timeline">
+        <article class="timeline-step">
+          <span>01</span>
+          <h3>入门安装与基础概念</h3>
+          <p>从 Claude Code 官方文档开始，理解它如何读取代码库、编辑文件、运行命令并接入开发工具。</p>
+          <a href="https://code.claude.com/docs/en/overview" target="_blank" rel="noreferrer">Claude Code Docs</a>
+        </article>
+        <article class="timeline-step">
+          <span>02</span>
+          <h3>视频课：Claude Code 101</h3>
+          <p>适合做成中文速通笔记：常见命令、交互方式、项目上下文与最佳实践。</p>
+          <a href="https://anthropic.skilljar.com/claude-code-101" target="_blank" rel="noreferrer">Claude Code 101</a>
+        </article>
+        <article class="timeline-step">
+          <span>03</span>
+          <h3>进阶：子代理与工作流</h3>
+          <p>后续重点整理 subagents、MCP、自动化 PR review、长任务和真实代码库迁移案例。</p>
+          <a href="https://claude.com/resources/courses" target="_blank" rel="noreferrer">Claude Courses</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block curation-system">
+      <div>
+        <p class="eyebrow">Curation System</p>
+        <h2>后续收录规则</h2>
+      </div>
+      <div class="rules-grid">
+        <div>
+          <strong>1. 官方优先</strong>
+          <p>优先收 OpenAI、Anthropic、Claude 官方文档、博客、课程和产品页。</p>
+        </div>
+        <div>
+          <strong>2. 中文摘要</strong>
+          <p>每篇文章附 3–5 条中文要点，说明适合谁读、为什么重要。</p>
+        </div>
+        <div>
+          <strong>3. 标签化归档</strong>
+          <p>按模型、Coding Agent、创业、产品、研究等主题归类。</p>
+        </div>
+        <div>
+          <strong>4. 可行动笔记</strong>
+          <p>不只翻译标题，也沉淀可执行的教程、清单和工作流。</p>
+        </div>
+      </div>
     </section>
   </main>
 
-  <template id="cellTemplate">
-    <button type="button" class="cell"></button>
-  </template>
-
-  <script src="./script.js"></script>
+  <footer class="site-footer">
+    <p>© 2026 Codetimo. Curated for Chinese readers following OpenAI & Anthropic.</p>
+    <a href="#top">回到顶部 ↑</a>
+  </footer>
 </body>
 </html>
